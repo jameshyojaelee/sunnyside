@@ -588,3 +588,6 @@ body {
 .about a {
   color: #ffe066;
 }
+.build-panel .result.add {
+  border-color: #6fd58a;
+}

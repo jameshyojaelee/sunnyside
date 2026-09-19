@@ -28,6 +28,8 @@ interface Target {
   anchor(scale: number): THREE.Vector3;
   focus: THREE.Vector3;
   info(): CardInfo;
+  /** Where the click hit, on the ground plan (when known). */
+  point?: [number, number];
 }
 
 /** Owns the place buildings and landmarks: rendering, hover highlight + label, picking, and the card. */
@@ -108,6 +110,15 @@ export class PlacesController {
   placeAt(sx: number, sy: number): Place | null {
     const t = this.pickAt(sx, sy);
     return t ? (this.places.find((p) => p.id === t.id) ?? null) : null;
+  }
+
+  /** Every place in the building under a screen point, and where on it the click landed. */
+  buildingAt(sx: number, sy: number): { places: Place[]; point: [number, number] } | null {
+    const t = this.pickAt(sx, sy);
+    if (!t) return null;
+    const b = this.buildings.find((x) => x.places.some((p) => p.id === t.id));
+    if (!b) return null;
+    return { places: b.places, point: t.point ?? [b.centroid[0], b.centroid[1]] };
   }
 
   /** Select a place by id (from the places list). */
@@ -196,7 +207,7 @@ export class PlacesController {
     if (!building) return null;
     // Shared building: the storefront nearest to where the ray hit.
     const nearest = building.storefronts.reduce((a, b) => (a.point.distanceTo(hit.point) <= b.point.distanceTo(hit.point) ? a : b));
-    return this.placeTarget(building, nearest.place);
+    return { ...this.placeTarget(building, nearest.place), point: [hit.point.x, hit.point.y] };
   }
 
   hover(sx: number, sy: number) {

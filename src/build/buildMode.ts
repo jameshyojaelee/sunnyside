@@ -53,6 +53,20 @@ export function slugify(name: string): string {
 const round7 = (v: number) => Math.round(v * 1e7) / 1e7;
 const html = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** A storefront point inside the ring: points just outside (a shop node on the sidewalk) snap onto the nearest wall. */
+function snapInto(ring: Pt[], p: Pt): Pt {
+  if (pointInRing(p[0], p[1], ring)) return p;
+  let best = { d: Infinity, q: p };
+  ring.forEach((a, j) => {
+    const c = ring[(j + 1) % ring.length];
+    const t = projectOnSegment(p[0], p[1], a[0], a[1], c[0], c[1]);
+    const q: Pt = [a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t];
+    const d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (d < best.d) best = { d, q };
+  });
+  return best.q;
+}
+
 /** Resize to at most 1600 px and re-encode as JPEG; re-encoding also drops EXIF/GPS metadata. */
 async function shrinkPhoto(file: File): Promise<Blob> {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -124,7 +138,7 @@ export async function setupBuildMode(ctx: Ctx) {
   function showHome() {
     panel.innerHTML = `
       <h2>Build mode</h2>
-      <p class="hint">Click the building where the shop's front door is, or search for it. Click a building with a heart to edit it.</p>
+      <p class="hint">Click the building where the shop's front door is, or search for it. Click a building with a heart to edit its shops or add another one.</p>
       <input class="search" type="search" placeholder="Shop name or address, e.g. 46-10 Queens Blvd" aria-label="Search" />
       <div class="results"></div>
       <p class="hint small">Saving writes <code>src/data/places.json</code>. Run <code>npm run publish-places</code> to put changes online.</p>`;
@@ -413,19 +427,7 @@ export async function setupBuildMode(ctx: Ctx) {
   function selectBuilding(i: number, click: Pt, poiName?: string) {
     const b = buildings[i];
     const ring = prepareFootprint(b.ring);
-    let storefront = click;
-    if (!pointInRing(click[0], click[1], ring)) {
-      // Snap a point just outside (e.g. a shop node on the sidewalk) onto the nearest wall.
-      let best = { d: Infinity, p: click };
-      ring.forEach((a, j) => {
-        const c = ring[(j + 1) % ring.length];
-        const t = projectOnSegment(click[0], click[1], a[0], a[1], c[0], c[1]);
-        const p: Pt = [a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t];
-        const d = Math.hypot(p[0] - click[0], p[1] - click[1]);
-        if (d < best.d) best = { d, p };
-      });
-      storefront = best.p;
-    }
+    const storefront = snapInto(ring, click);
     const address = b.a ?? pois.find((p) => p.n === poiName)?.a;
     sel = {
       ring,
@@ -440,6 +442,59 @@ export async function setupBuildMode(ctx: Ctx) {
     pendingName = poiName;
     showForm();
     if (address) (panel.querySelector('[name="address"]') as HTMLInputElement).value = address;
+  }
+
+  /** A new place in a building that already has places: same outline, height and look. */
+  function addToBuilding(existing: Place, click: Pt) {
+    const ring = existing.footprint.map(([lon, lat]) => proj.toLocal(lon, lat));
+    const storefront = snapInto(ring, click);
+    sel = {
+      ring,
+      storefront,
+      facadeEdge: chooseFacadeEdge(ring, storefront, namedRoads, existing.address),
+      facadeManual: false,
+      osmBuildingId: existing.osmBuildingId,
+      height: existing.height,
+      photos: [],
+      newPhotos: [],
+    };
+    pendingName = undefined;
+    showForm();
+    if (existing.address) (panel.querySelector('[name="address"]') as HTMLInputElement).value = existing.address;
+  }
+
+  /** Clicked a building that already has places: edit one of them, or add another shop. */
+  function showBuildingChooser(inBuilding: Place[], click: Pt) {
+    sel = null;
+    drawGhost();
+    panel.replaceChildren();
+    const h = document.createElement('h2');
+    h.textContent = inBuilding.length > 1 ? 'Shops in this building' : 'This building';
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = inBuilding[0].address ?? '';
+    panel.append(h, hint);
+    const list = document.createElement('div');
+    list.className = 'results';
+    for (const p of inBuilding) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'result';
+      b.innerHTML = `<strong>Edit ${html(p.name)}</strong><small>${html(CATEGORIES[p.category].label)}</small>`;
+      b.addEventListener('click', () => editPlace(p));
+      list.append(b);
+    }
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'result add';
+    add.innerHTML = '<strong>+ Add another place in this building</strong><small>Its awning goes on the wall you clicked</small>';
+    add.addEventListener('click', () => addToBuilding(inBuilding[0], click));
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => clearSelection());
+    list.append(add);
+    panel.append(list, cancel);
   }
 
   function editPlace(p: Place) {
@@ -500,7 +555,7 @@ export async function setupBuildMode(ctx: Ctx) {
       const i = place ? null : buildingAt(x, y);
       setHoverRing(i !== null ? buildings[i].ring : null);
       const street = roadAt(x, y, 4);
-      const parts = place ? [`Edit ${place.name}`] : i !== null ? [buildings[i].a ?? 'Building', street ? `near ${street}` : ''] : [street ?? ''];
+      const parts = place ? [place.name, 'Click to edit or add a shop'] : i !== null ? [buildings[i].a ?? 'Building', street ? `near ${street}` : ''] : [street ?? ''];
       const text = parts.filter(Boolean);
       tip.hidden = !text.length;
       if (text.length) {
@@ -514,8 +569,8 @@ export async function setupBuildMode(ctx: Ctx) {
       setHoverRing(null);
     },
     onTap(sx, sy) {
-      const place = controller.placeAt(sx, sy);
-      if (place) return editPlace(place);
+      const hit = controller.buildingAt(sx, sy);
+      if (hit) return showBuildingChooser(hit.places, hit.point);
       const [x, y] = app.screenToGround(sx, sy);
       const i = buildingAt(x, y);
       if (i !== null) selectBuilding(i, [x, y]);
