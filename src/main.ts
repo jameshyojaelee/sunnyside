@@ -51,7 +51,8 @@ async function start() {
   right.append(
     roundButton(ICONS.minus, 'Zoom out', () => app.zoomAnimated(1 / 1.6)),
     roundButton(ICONS.plus, 'Zoom in', () => app.zoomAnimated(1.6)),
-    roundButton(ICONS.rotate, 'Rotate view (Q / E)', () => app.rotate(1)),
+    roundButton(ICONS.rotateCcw, 'Rotate counter-clockwise (Q)', () => app.rotate(-1)),
+    roundButton(ICONS.rotate, 'Rotate clockwise (E)', () => app.rotate(1)),
     roundButton(ICONS.home, 'Show all of Sunnyside', () => app.home()),
   );
   top.append(left, right);

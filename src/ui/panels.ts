@@ -127,7 +127,7 @@ export class AboutPanel extends SidePanel {
       <h3>Getting around</h3>
       <ul>
         <li>Drag to move around; scroll or pinch to zoom.</li>
-        <li>Turn the view with the rotate button (or Q and E).</li>
+        <li>Turn the view with the two rotate buttons (or Q and E).</li>
         <li>Click a building with a heart to read about it.</li>
       </ul>
       <h3>Credits</h3>
