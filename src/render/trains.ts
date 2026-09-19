@@ -7,7 +7,8 @@ const CAR_LEN = 15.5;
 const PITCH = CAR_LEN + 0.9;
 const TRAIN_LEN = CARS * PITCH;
 const SPEED = 12; // m/s
-const PURPLE = '#b933ad'; // the 7 line's color
+// Brighter than the MTA's 7-line purple (#B933AD) so the stripe pops at map scale.
+const PURPLE = '#a92cf2';
 
 interface Track {
   pts: Float64Array; // flat x, y
@@ -42,7 +43,9 @@ function carTexture(): THREE.CanvasTexture {
   ctx.fillStyle = '#2a323d';
   for (let x = 6; x < 250; x += 24) ctx.fillRect(x, 6, 18, 9);
   ctx.fillStyle = PURPLE;
-  ctx.fillRect(0, 18, 256, 3);
+  ctx.fillRect(0, 17, 256, 5);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillRect(0, 16, 256, 1);
   ctx.fillStyle = 'rgba(40,46,56,0.55)';
   for (const x of [40, 118, 196]) ctx.fillRect(x, 5, 16, 25);
   // End (bottom-left): steel with a front window and a purple bullet.
@@ -60,6 +63,25 @@ function carTexture(): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 4;
   return t;
+}
+
+/**
+ * Self-light for the car atlas: a gentle lift everywhere, plus the purple stripe and bullet so
+ * they stay vivid on the shaded side of the train.
+ */
+function carGlowTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 64;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#3a3d42';
+  ctx.fillRect(0, 0, 256, 64);
+  ctx.fillStyle = '#7420c9';
+  ctx.fillRect(0, 17, 256, 5);
+  ctx.beginPath();
+  ctx.arc(32, 55, 5, 0, Math.PI * 2);
+  ctx.fill();
+  return new THREE.CanvasTexture(c);
 }
 
 /** Car body with UVs pointing into the atlas: sides, ends, roof. Length along +x. */
@@ -164,7 +186,7 @@ export function buildTrains(viaduct: number[][], reducedMotion: boolean) {
     running: !(i === 1 && tracks.length === 3),
   }));
 
-  const mesh = new THREE.InstancedMesh(carGeometry(), new THREE.MeshLambertMaterial({ map: carTexture(), emissive: '#3a3d42' }), trains.length * CARS);
+  const mesh = new THREE.InstancedMesh(carGeometry(), new THREE.MeshLambertMaterial({ map: carTexture(), emissive: '#ffffff', emissiveMap: carGlowTexture() }), trains.length * CARS);
   mesh.frustumCulled = false;
   group.add(mesh);
 
