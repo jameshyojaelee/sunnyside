@@ -40,6 +40,10 @@ export interface PlaceFacade {
   wall?: string;
   /** Smooth panels or stone blocks (default smooth). */
   finish?: 'smooth' | 'stone';
+  /** Keep rows of windows on the upper floors (apartments over shops). */
+  windows?: boolean;
+  /** Raised, arch-topped section of wall above the roof over this shop's entrance; meters. */
+  gable?: { width: number; rise: number; color: string };
   /** Full-height shop windows along every street-facing wall, up to this height in meters. */
   shopGlass?: number;
   /** Continuous canopy color above the shop windows on street-facing walls. */
@@ -47,7 +51,7 @@ export interface PlaceFacade {
   /** Molding band color just under the roofline. */
   cornice?: string;
   /** Panel across this shop's front, optionally lettered; width and height in meters. */
-  band?: { color: string; text?: string; textColor?: string; width?: number; height?: number; pattern?: 'tile' };
+  band?: { color: string; text?: string; textColor?: string; width?: number; height?: number; bottom?: number; pattern?: 'tile' };
   /** Big plain lettering on the storefront wall, above the band. */
   letters?: { text: string; color: string };
   /** Posts (door frames) at both ends of this shop's front. */
@@ -68,6 +72,8 @@ export interface PlaceLot {
   driveThru?: Array<[number, number]>;
   /** Base of a tall sign on a pole. */
   poleSign?: [number, number];
+  /** Rows of parking stalls from a to b; stalls extend to the left (side 1) or right (-1) of a->b. */
+  stallRows?: Array<{ a: [number, number]; b: [number, number]; side: 1 | -1; depth?: number; fill?: number }>;
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -143,6 +149,8 @@ export function validatePlaces(input: unknown): string[] {
         if (f.letters !== undefined && !(typeof f.letters.text === 'string' && f.letters.text.trim() && hex(f.letters.color))) err('facade.letters needs text and a color');
         if (f.corner !== undefined && !(Array.isArray(f.corner.lines) && f.corner.lines.length && hex(f.corner.color) && hex(f.corner.bg)))
           err('facade.corner needs lines, color and bg');
+        if (f.gable !== undefined && !(f.gable.width > 1 && f.gable.rise > 0.3 && f.gable.rise < 10 && hex(f.gable.color)))
+          err('facade.gable needs width, rise (0.3-10 m) and color');
       }
     }
     if (p.lot !== undefined) {
@@ -155,6 +163,11 @@ export function validatePlaces(input: unknown): string[] {
         if (lot.driveThru !== undefined && !(Array.isArray(lot.driveThru) && lot.driveThru.length >= 2 && lot.driveThru.every(isLonLat)))
           err('lot.driveThru must be 2+ [lon, lat] points');
         if (lot.poleSign !== undefined && !isLonLat(lot.poleSign)) err('lot.poleSign must be a [lon, lat] point');
+        if (
+          lot.stallRows !== undefined &&
+          !(Array.isArray(lot.stallRows) && lot.stallRows.every((r) => isLonLat(r.a) && isLonLat(r.b) && (r.side === 1 || r.side === -1)))
+        )
+          err('lot.stallRows need a, b ([lon, lat]) and side (1 or -1)');
       }
     }
   });

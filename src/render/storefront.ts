@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { distToSegment, nearestOnLine, type Pt } from '../geo.ts';
+import { distToSegment, nearestOnLine, pointInRing, type Pt } from '../geo.ts';
 import type { PlaceFacade } from '../places.ts';
 import { canvasTexture, fitFont } from './panel.ts';
 import { geometry, pushQuad, UNIT } from './quads.ts';
@@ -119,6 +119,18 @@ function cornerTexture(lines: string[], color: string, bg: string): THREE.Textur
   );
 }
 
+/** Which walls face one of the given lot outlines (their outside, a few meters out, is in the lot). */
+export function lotWalls(ring: Pt[], lots: Pt[][]): boolean[] {
+  return ring.map((a, i) => {
+    const b = ring[(i + 1) % ring.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 3) return false;
+    const x = (a[0] + b[0]) / 2 + ((b[1] - a[1]) / len) * 3;
+    const y = (a[1] + b[1]) / 2 - ((b[0] - a[0]) / len) * 3;
+    return lots.some((l) => pointInRing(x, y, l));
+  });
+}
+
 /** Which walls face a street (their outside, a few meters out, is on or next to a road). */
 export function streetWalls(ring: Pt[], roads: Array<{ w: number; sw?: number; p: number[] }>): boolean[] {
   return ring.map((a, i) => {
@@ -146,8 +158,10 @@ export function buildStorefront(
   building: PlaceFacade,
   fronts: FacadeFront[],
   roads: Array<{ w: number; sw?: number; p: number[] }>,
+  lots: Pt[][] = [],
 ): void {
-  const onStreet = streetWalls(ring, roads);
+  // Shop fronts face the building's own parking lot if it has one, otherwise the street.
+  const onStreet = lots.length ? lotWalls(ring, lots) : streetWalls(ring, roads);
   const wall = (edge: number) => {
     const a = ring[edge];
     const b = ring[(edge + 1) % ring.length];
@@ -204,14 +218,58 @@ export function buildStorefront(
       return [c - half, c + half] as const;
     };
 
+    if (f.gable) {
+      // Raised wall section over the entrance: straight sides, then an arched top.
+      const { n, at } = wall(front.edge);
+      const gw = Math.min(f.gable.width, len - 0.6);
+      const [t0, t1] = span(gw);
+      const base = h - 0.4;
+      const shoulder = h + f.gable.rise * 0.45;
+      const top = h + f.gable.rise;
+      const outline: THREE.Vector2[] = [new THREE.Vector2(0, base), new THREE.Vector2(gw, base), new THREE.Vector2(gw, shoulder)];
+      for (let i = 1; i < 16; i++) {
+        const a = (i / 16) * Math.PI;
+        outline.push(new THREE.Vector2(gw / 2 + (Math.cos(a) * gw) / 2, shoulder + Math.sin(a) * (top - shoulder)));
+      }
+      outline.push(new THREE.Vector2(0, shoulder));
+      const world = (p: THREE.Vector2) => at(t0 + (p.x / gw) * (t1 - t0), 0.03, p.y);
+      const pos: number[] = [];
+      const nrm: number[] = [];
+      const uv: number[] = [];
+      for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(outline, [])) {
+        for (const v of [outline[i], outline[j], outline[k]].map(world)) {
+          pos.push(v.x, v.y, v.z);
+          nrm.push(n.x, n.y, n.z);
+          uv.push(0, 0);
+        }
+      }
+      g.add(new THREE.Mesh(geometry(pos, nrm, uv), new THREE.MeshLambertMaterial({ color: f.gable.color, side: THREE.DoubleSide, emissive: '#1c1c1c' })));
+      // Light trim along the arch.
+      const trim = new THREE.MeshLambertMaterial({ color: '#efe6d4', side: THREE.DoubleSide, emissive: '#2a2a2a' });
+      const tp: number[] = [];
+      const tn: number[] = [];
+      const tu: number[] = [];
+      const edgePts = outline.slice(2);
+      for (let i = 0; i + 1 < edgePts.length; i++) {
+        const p0 = edgePts[i];
+        const p1 = edgePts[i + 1];
+        const d0 = new THREE.Vector2(gw / 2, shoulder).sub(p0).normalize().multiplyScalar(0.3);
+        const d1 = new THREE.Vector2(gw / 2, shoulder).sub(p1).normalize().multiplyScalar(0.3);
+        pushQuad(tp, tn, tu, [world(p0), world(p1), world(p1.clone().add(d1)).addScaledVector(n, 0.02), world(p0.clone().add(d0)).addScaledVector(n, 0.02)], n, UNIT);
+      }
+      g.add(new THREE.Mesh(geometry(tp, tn, tu), trim));
+    }
+
     let above = bandBottom;
     if (f.band) {
       const bw = Math.min(f.band.width ?? 7, len - 0.6);
       const bh = f.band.height ?? 1.8;
       const [t0, t1] = span(bw);
       const tex = panelTexture(f.band.color, f.band.text, f.band.textColor ?? '#ffffff', bw, bh, f.band.pattern === 'tile');
-      quad(front.edge, t0, t1, bandBottom, Math.min(bandBottom + bh, h - 0.95), 0.07, new THREE.MeshLambertMaterial({ map: tex, emissive: '#202020' }));
-      above = bandBottom + bh;
+      const b0 = f.band.bottom ?? bandBottom;
+      const cap = f.gable ? h + f.gable.rise * 0.45 : h - 0.95;
+      quad(front.edge, t0, t1, b0, Math.min(b0 + bh, cap), 0.07, new THREE.MeshLambertMaterial({ map: tex, emissive: '#202020' }));
+      above = b0 + bh;
       if (f.posts) {
         const post = new THREE.MeshLambertMaterial({ color: f.posts });
         const pw = 0.35 / len;

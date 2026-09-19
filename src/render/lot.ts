@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { distToSegment, pointInRing, projectOnSegment, type Projection, type Pt } from '../geo.ts';
+import { distToSegment, pointInRing, projectOnSegment, rng, type Projection, type Pt } from '../geo.ts';
 import { placeColor, type Place } from '../places.ts';
 import { COLORS } from './ground.ts';
 import { canvasTexture, fitFont, panelEdge, twoSidedPanel } from './panel.ts';
@@ -31,6 +31,8 @@ export interface Lot {
 }
 
 const POLE_TOP = 9.6;
+const STALL_W = 2.7; // parking stall width
+const CAR_COLORS = ['#c9ccd1', '#2d2f33', '#f2f2ee', '#8e1f24', '#2c4f86', '#6e7479', '#a8a18f', '#3f6b4a'];
 const SIGN_H = 2.6;
 const SIGN_W = 5.4;
 
@@ -163,6 +165,62 @@ export function buildLot(place: Place, env: LotEnv): Lot | null {
       post.position.copy(base).setZ(0.4);
       out.objects.push(post);
     }
+  }
+
+  // Parking stalls: white stripes, with parked cars in most of them.
+  const stallCenters: Array<{ x: number; y: number; ang: number }> = [];
+  if (lot.stallRows?.length) {
+    const stripes: Array<{ p: number[]; hw: number }> = [];
+    for (const row of lot.stallRows) {
+      const [ax, ay] = env.proj.toLocal(...row.a);
+      const [bx, by] = env.proj.toLocal(...row.b);
+      const len = Math.hypot(bx - ax, by - ay);
+      const dx = (bx - ax) / len;
+      const dy = (by - ay) / len;
+      const nx = -dy * row.side;
+      const ny = dx * row.side;
+      const depth = row.depth ?? 5;
+      const count = Math.floor(len / STALL_W);
+      for (let k = 0; k <= count; k++) {
+        const x = ax + dx * k * STALL_W;
+        const y = ay + dy * k * STALL_W;
+        stripes.push({ p: [x, y, x + nx * depth, y + ny * depth], hw: 0.07 });
+      }
+      const rand = rng(Math.round(ax * 7 + ay * 13));
+      for (let k = 0; k < count; k++) {
+        if (rand() > (row.fill ?? 0.75)) continue;
+        const along = (k + 0.5) * STALL_W;
+        stallCenters.push({ x: ax + dx * along + nx * depth * 0.5, y: ay + dy * along + ny * depth * 0.5, ang: Math.atan2(ny, nx) });
+      }
+    }
+    out.ground.push(ground(buildStrips(stripes, 0, 4), groundMaterial('#f1eee2', 'plain', env.fade), o + 0.35));
+  }
+  if (stallCenters.length) {
+    const body = new THREE.BoxGeometry(4.3, 1.8, 0.85);
+    body.translate(0, 0, 0.75);
+    const cabin = new THREE.BoxGeometry(2.3, 1.6, 0.62);
+    cabin.translate(-0.2, 0, 1.48);
+    const bodies = new THREE.InstancedMesh(body, new THREE.MeshLambertMaterial({ color: '#ffffff' }), stallCenters.length);
+    const cabins = new THREE.InstancedMesh(cabin, new THREE.MeshLambertMaterial({ color: '#2b3440' }), stallCenters.length);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const one = new THREE.Vector3(1, 1, 1);
+    const pick = rng(stallCenters.length * 31 + 5);
+    stallCenters.forEach((c, i) => {
+      q.setFromAxisAngle(new THREE.Vector3(0, 0, 1), c.ang);
+      m.compose(new THREE.Vector3(c.x, c.y, 0), q, one);
+      bodies.setMatrixAt(i, m);
+      cabins.setMatrixAt(i, m);
+      bodies.setColorAt(i, new THREE.Color(CAR_COLORS[Math.floor(pick() * CAR_COLORS.length)]));
+    });
+    out.objects.push(bodies, cabins);
+    // Soft shadow under each car.
+    out.shadows.push(
+      new THREE.Mesh(
+        buildStrips(stallCenters.map((c) => ({ p: [c.x - Math.cos(c.ang) * 2, c.y - Math.sin(c.ang) * 2, c.x + Math.cos(c.ang) * 2 + env.sunOffset.x * 1.2, c.y + Math.sin(c.ang) * 2 + env.sunOffset.y * 1.2], hw: 1.0 })), 0, 4),
+        env.shadowMaterial,
+      ),
+    );
   }
 
   out.blocksTree = (x, y) =>

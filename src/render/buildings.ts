@@ -284,7 +284,9 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     const wallTex = fastFood
       ? fastFoodTexture(brand)
       : facade?.wall
-        ? facadeWallTexture(facade.wall, facade.finish ?? 'smooth')
+        ? facade.windows
+          ? windowTexture(facade.wall)
+          : facadeWallTexture(facade.wall, facade.finish ?? 'smooth')
         : windowTexture(WALL_COLORS[hash(key) % WALL_COLORS.length]);
     // Pale custom finishes get a little self-light so they stay pale on the shaded side.
     const baseEmissive = facade?.wall ? '#3a3a38' : '#000000';
@@ -376,7 +378,8 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
       storefronts.push({ place: p, point: at((span.t0 + span.t1) / 2, depth / 2, top - drop / 2) });
     }
 
-    if (facade) buildStorefront(g, ring, h, facade, facadeFronts, env.roads);
+    const lotRings = group.flatMap((p) => (p.lot?.paved ?? []).map((r) => r.map(([lon, lat]) => proj.toLocal(lon, lat))));
+    if (facade) buildStorefront(g, ring, h, facade, facadeFronts, env.roads, lotRings);
 
     // Lot extras: parking, drive-thru lane, pole sign, menu board, and the pickup window.
     const lots = group.map((p) => buildLot(p, env)).filter((l): l is Lot => !!l);
