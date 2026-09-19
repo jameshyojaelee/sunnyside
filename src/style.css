@@ -196,6 +196,17 @@ body {
   color: var(--panel-muted);
   font-weight: 700;
 }
+.loading-retry {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 2px solid var(--panel-border);
+  background: #f7f4e6;
+  color: #1b2340;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
 
 @media (max-width: 520px) {
   :root {

@@ -18,8 +18,25 @@
       <div class="panel loading-panel">
         <div class="loading-title">Sunnyside</div>
         <div class="loading-line" id="loading-line">Loading the neighborhood…</div>
+        <button type="button" class="loading-retry" id="loading-retry" hidden>Reload the page</button>
       </div>
     </div>
+    <script>
+      // If the map has not appeared after 20 seconds, say so instead of spinning forever: on phones
+      // this is usually a cached copy of the page pointing at a script that no longer exists.
+      setTimeout(function () {
+        var panel = document.getElementById('loading');
+        if (!panel || panel.classList.contains('done')) return;
+        document.getElementById('loading-line').textContent = window.__mapStarted
+          ? 'Still loading. Your connection may be very slow.'
+          : 'This page could not start. Your browser may be holding an old copy of it.';
+        var retry = document.getElementById('loading-retry');
+        retry.hidden = false;
+        retry.onclick = function () {
+          location.replace(location.pathname + '?r=' + Date.now());
+        };
+      }, 20000);
+    </script>
     <noscript>This map of Sunnyside needs JavaScript and WebGL.</noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>

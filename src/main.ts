@@ -30,7 +30,10 @@ function usable(places: Place[]): Place[] {
   return places.filter((p) => !bad.has(p.id));
 }
 
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function start() {
+  window.__mapStarted = true;
   const line = document.getElementById('loading-line')!;
   let i = 0;
   const ticker = window.setInterval(() => (line.textContent = LOADING_LINES[i++ % LOADING_LINES.length]), 700);
@@ -72,8 +75,9 @@ async function start() {
   const card = new PlaceCard(ui, () => controller.onCardClosed());
   const controller = new PlacesController(app, proj, card, ui);
 
-  // Landmarks and the 7 train. The arch sign uses the page font, so wait for it first.
-  await document.fonts.load('900 54px Nunito').catch(() => undefined);
+  // Landmarks and the 7 train. The arch sign uses the page font, so wait for it first, but never
+  // hang on it: on a slow phone network the font request can stay pending forever.
+  await Promise.race([document.fonts.load('900 54px Nunito').catch(() => undefined), wait(2500)]);
   controller.setLandmarks([
     {
       id: 'sunnyside-arch',
@@ -136,8 +140,16 @@ async function start() {
   if (import.meta.env.DEV) Object.assign(window, { __app: app, __places: controller });
 }
 
-start().catch((err) => {
-  console.error(err);
+function loadFailed(what: string) {
   const line = document.getElementById('loading-line');
-  if (line) line.textContent = 'Sorry, the map could not load. Please refresh.';
+  if (line) line.textContent = `Sorry, the map could not load (${what}). Please refresh.`;
+  document.getElementById('loading-retry')?.removeAttribute('hidden');
+}
+
+start().catch((err: unknown) => {
+  console.error(err);
+  loadFailed(err instanceof Error ? err.message : 'unknown error');
 });
+// A WebGL failure after startup (phones drop the context when memory runs short) would otherwise
+// leave a frozen map with no explanation.
+window.addEventListener('unhandledrejection', (e) => console.error('[sunnyside]', e.reason));
