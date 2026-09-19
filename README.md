@@ -18,5 +18,6 @@ Live: https://jameshyojaelee.github.io/sunnyside/
 - Streets, parks, rail, buildings and named places: © OpenStreetMap contributors, available under the Open Database License (ODbL). The files in `public/data/` and `dev-data/` are derived from OpenStreetMap and are also ODbL.
 - Street trees: NYC Parks "Forestry Tree Points", NYC Open Data.
 - Neighborhood boundary: NYC Department of City Planning, 2020 Neighborhood Tabulation Areas, NYC Open Data.
+- Music: "Bossa Nova do Build" by james_leee, made with Suno (`public/audio/`).
 
 Inspired by The Sims (1999/2000). Not affiliated with Electronic Arts or Maxis. All art is drawn in code.

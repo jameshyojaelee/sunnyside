@@ -132,7 +132,8 @@ export class AboutPanel extends SidePanel {
       </ul>
       <h3>Credits</h3>
       <p>Streets, parks, rail and buildings: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>, under the Open Database License.
-      Street trees: NYC Parks, via NYC Open Data. Neighborhood boundary: NYC Department of City Planning.</p>
+      Street trees: NYC Parks, via NYC Open Data. Neighborhood boundary: NYC Department of City Planning.
+      Music: “Bossa Nova do Build” by james_leee, made with Suno.</p>
       <p class="small">Inspired by the look of The Sims (1999/2000). Not affiliated with or endorsed by Electronic Arts or Maxis. Business names identify places we like; we aren't affiliated with them.</p>`;
     body.querySelector('.intro')!.textContent = ABOUT_INTRO;
     this.root.replaceChildren(...this.header('About this map'), body);

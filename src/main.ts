@@ -9,6 +9,7 @@ import { PlacesController } from './placesController.ts';
 import { buildArch } from './render/arch.ts';
 import { buildTrains } from './render/trains.ts';
 import { PlaceCard } from './ui/card.ts';
+import { setupMusic } from './ui/music.ts';
 import { AboutPanel, closeSidePanels, PlacesList } from './ui/panels.ts';
 import { ICONS, roundButton } from './ui/icons.ts';
 
@@ -93,6 +94,7 @@ async function start() {
     roundButton(ICONS.places, 'Our places', () => list.toggle()),
     roundButton(ICONS.info, 'About this map', () => about.toggle()),
   );
+  setupMusic(left);
   controller.onChange = (places) => {
     document.getElementById('place-count')!.textContent = `${places.length} ${places.length === 1 ? 'place' : 'places'} so far`;
     list.setPlaces(places);
