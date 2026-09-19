@@ -1,41 +1,94 @@
 import * as THREE from 'three';
 import { distToSegment, projectOnSegment, type Projection } from '../geo.ts';
 import type { MapData } from '../mapdata.ts';
+import { twoSidedPanel } from './panel.ts';
 
 // The Sunnyside Arch: OSM node 14181628740, spanning 46th Street just south of Queens Boulevard.
-// About 25 ft (7.6 m) tall, steel tubing framing "Sunnyside" on a baby-blue sign (Wikipedia).
+// Shape follows photos on Wikimedia Commons (2007, 2019, 2021): two silver posts joined by two
+// beams, an arched blue "SUNNYSIDE" banner, and an Art Deco crown of five stepped, rounded ladder
+// loops (neon at night: green outside, red, then white in the middle).
 export const ARCH_LONLAT: [number, number] = [-73.918774, 40.742843];
-const PANEL_BOTTOM = 5.0;
-const PANEL_TOP = 6.5;
-const PEAK = 7.6;
-const FRAME = '#ece7da';
+const H = 11.5; // overall height; photos put it at about 1.6x the post spacing
+const S = 7.2; // post spacing
+const Z_UPPER = 0.6 * H; // upper beam
+const Z_LOWER = 0.4 * H; // lower beam
+const SILVER = '#dde1e6';
 
-function signTexture(): THREE.CanvasTexture {
+/** Crown loops: center x and outer half-width in units of S, top in units of H, neon color. */
+const FINS = [
+  { x: 0, a: 0.125, top: 1.0, neon: '#cdeeff', outerDown: Z_UPPER },
+  { x: -0.19, a: 0.067, top: 0.872, neon: '#ff5a4f', outerDown: Z_UPPER },
+  { x: 0.19, a: 0.067, top: 0.872, neon: '#ff5a4f', outerDown: Z_UPPER },
+  { x: -0.295, a: 0.045, top: 0.741, neon: '#3ddc84', outerDown: Z_LOWER },
+  { x: 0.295, a: 0.045, top: 0.741, neon: '#3ddc84', outerDown: Z_LOWER },
+];
+
+function canvasTex(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void) {
   const c = document.createElement('canvas');
-  c.width = 512;
-  c.height = 96;
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#9ed2f2';
-  ctx.fillRect(0, 0, 512, 96);
-  // Light bulbs along the top and bottom edges.
-  ctx.fillStyle = '#fff6c8';
-  for (let x = 10; x < 512; x += 20) {
-    for (const y of [9, 87]) {
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.font = '900 54px Nunito, system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = '#1d4f86';
-  ctx.strokeText('SUNNYSIDE', 256, 50);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText('SUNNYSIDE', 256, 50);
+  c.width = w;
+  c.height = h;
+  draw(c.getContext('2d')!);
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = 8;
+  return t;
+}
+
+/** Arched blue banner with white letters following the curve; transparent outside the band. */
+function bannerTexture() {
+  return canvasTex(512, 212, (ctx) => {
+    const cx = 256;
+    const cy = 600;
+    const r1 = 570;
+    const r2 = 470;
+    const half = Math.asin(236 / r1);
+    const band = () => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r1, -Math.PI / 2 - half, -Math.PI / 2 + half);
+      ctx.arc(cx, cy, r2, -Math.PI / 2 + half, -Math.PI / 2 - half, true);
+      ctx.closePath();
+    };
+    band();
+    const g = ctx.createLinearGradient(0, 30, 0, 180);
+    g.addColorStop(0, '#5b8fe0');
+    g.addColorStop(1, '#2f5cae');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = '#f4f7fb';
+    ctx.stroke();
+    const text = 'SUNNYSIDE';
+    ctx.font = '900 70px Nunito, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const rm = (r1 + r2) / 2;
+    const spread = half * 0.8;
+    [...text].forEach((ch, i) => {
+      const ang = -spread + (2 * spread * i) / (text.length - 1);
+      ctx.save();
+      ctx.translate(cx + Math.sin(ang) * rm, cy - Math.cos(ang) * rm);
+      ctx.rotate(ang);
+      ctx.lineWidth = 8;
+      ctx.strokeStyle = '#173a78';
+      ctx.strokeText(ch, 0, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(ch, 0, 0);
+      ctx.restore();
+    });
+  });
+}
+
+/** Ladder truss: two rails with rungs, transparent between them. Repeats along the loop. */
+function ladderTexture() {
+  const t = canvasTex(32, 32, (ctx) => {
+    ctx.fillStyle = SILVER;
+    ctx.fillRect(0, 0, 32, 7);
+    ctx.fillRect(0, 25, 32, 7);
+    ctx.fillRect(12, 0, 7, 32);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 6, 32, 1);
+    ctx.fillRect(0, 31, 32, 1);
+  });
+  t.wrapS = THREE.RepeatWrapping;
   return t;
 }
 
@@ -48,82 +101,127 @@ export interface Arch {
   setHighlight(on: boolean): void;
 }
 
-/** Builds the arch centered on 46th Street at the OSM position, spanning curb to curb. */
+/** Builds the arch centered on 46th Street at the OSM position, facing along the street. */
 export function buildArch(data: MapData, proj: Projection): Arch {
   const [px, py] = proj.toLocal(...ARCH_LONLAT);
-  // Find 46th Street's centerline under the arch to get its direction and width.
-  let best = { d: Infinity, ax: 0, ay: 0, bx: 1, by: 0, w: 10, sw: 3 };
+  // 46th Street's centerline under the arch gives its direction.
+  let best = { d: Infinity, ax: 0, ay: 0, bx: 1, by: 0 };
   for (const r of data.roads) {
     if (r.l !== 0 || r.n !== '46th Street') continue;
     for (let i = 0; i + 3 < r.p.length; i += 2) {
       const d = distToSegment(px, py, r.p[i], r.p[i + 1], r.p[i + 2], r.p[i + 3]);
-      if (d < best.d) best = { d, ax: r.p[i], ay: r.p[i + 1], bx: r.p[i + 2], by: r.p[i + 3], w: r.w, sw: r.sw };
+      if (d < best.d) best = { d, ax: r.p[i], ay: r.p[i + 1], bx: r.p[i + 2], by: r.p[i + 3] };
     }
   }
   const t = projectOnSegment(px, py, best.ax, best.ay, best.bx, best.by);
-  const cx = best.ax + (best.bx - best.ax) * t;
-  const cy = best.ay + (best.by - best.ay) * t;
+  const center = new THREE.Vector3(best.ax + (best.bx - best.ax) * t, best.ay + (best.by - best.ay) * t, 0);
   const along = new THREE.Vector3(best.bx - best.ax, best.by - best.ay, 0).normalize();
-  const across = new THREE.Vector3(-along.y, along.x, 0); // span direction
-  const half = best.w / 2 + 1.0; // posts stand on the sidewalks, just past the curbs
+  const across = new THREE.Vector3(-along.y, along.x, 0);
+  /** World point from arch-plane coordinates (x across the street, z up, y along it). */
+  const P = (x: number, z: number, y = 0) => center.clone().addScaledVector(across, x).addScaledVector(along, y).setZ(z);
+  const yaw = Math.atan2(across.y, across.x);
 
   const group = new THREE.Group();
   group.name = 'arch';
-  const frameMat = new THREE.MeshLambertMaterial({ color: FRAME });
-  const center = new THREE.Vector3(cx, cy, 0);
-  const at = (s: number, z: number) => center.clone().addScaledVector(across, s).setZ(z);
+  // Slight self-light so the steel reads as silver even on the shaded side.
+  const frame = new THREE.MeshLambertMaterial({ color: SILVER, emissive: '#44484e' });
+  const box = (x0: number, x1: number, z0: number, z1: number, depth: number) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, depth, z1 - z0), frame);
+    m.position.copy(P((x0 + x1) / 2, (z0 + z1) / 2));
+    m.rotation.z = yaw;
+    group.add(m);
+  };
 
-  // Posts.
+  // Posts, the upper beam (reaching past the posts), and the lower beam.
   const posts: Array<[number, number]> = [];
-  for (const s of [-half, half]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, PANEL_TOP, 12), frameMat);
-    post.rotation.x = Math.PI / 2; // cylinder axis to z
-    const p = at(s, PANEL_TOP / 2);
-    post.position.copy(p);
-    group.add(post);
-    posts.push([p.x, p.y]);
+  for (const sx of [-S / 2, S / 2]) {
+    box(sx - 0.17, sx + 0.17, 0, Z_UPPER + 0.35, 0.34);
+    const base = P(sx, 0);
+    posts.push([base.x, base.y]);
+  }
+  box(-S / 2 - 0.14 * S, S / 2 + 0.14 * S, Z_UPPER - 0.14, Z_UPPER + 0.14, 0.26);
+  box(-S / 2, S / 2, Z_LOWER - 0.12, Z_LOWER + 0.12, 0.26);
+
+  // Small arch under the banner, springing from the lower beam.
+  const under = new THREE.QuadraticBezierCurve3(P(-0.27 * S, Z_LOWER), P(0, Z_LOWER + 0.15 * H), P(0.27 * S, Z_LOWER));
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(under, 24, 0.11, 8, false), frame));
+
+  // Crown: stepped ladder loops with a neon line along each outer edge.
+  const ladder = new THREE.MeshLambertMaterial({ map: ladderTexture(), alphaTest: 0.5, side: THREE.DoubleSide, emissive: '#44484e' });
+  const band = 0.042 * S;
+  for (const f of FINS) {
+    const cx = f.x * S;
+    const r = f.a * S - band / 2; // centerline radius of the loop
+    const top = f.top * H - band / 2;
+    const outerIsLeft = f.x < 0;
+    const leftDown = outerIsLeft ? f.outerDown : Z_UPPER;
+    const rightDown = outerIsLeft ? Z_UPPER : f.outerDown;
+    // Path: up the left leg, over the round top, down the right leg.
+    const path: THREE.Vector2[] = [new THREE.Vector2(cx - r, leftDown)];
+    for (let i = 0; i <= 20; i++) {
+      const ang = Math.PI - (i / 20) * Math.PI;
+      path.push(new THREE.Vector2(cx + Math.cos(ang) * r, top - r + Math.sin(ang) * r));
+    }
+    path.push(new THREE.Vector2(cx + r, rightDown));
+    group.add(ribbon(path, band, 0, ladder, P, 0.24));
+    const neon = new THREE.MeshBasicMaterial({ color: f.neon, side: THREE.DoubleSide });
+    group.add(ribbon(path, 0.07, band / 2 + 0.035, neon, P, 1));
   }
 
-  // Curved top tube rising to the peak height.
-  const curve = new THREE.QuadraticBezierCurve3(at(-half, PANEL_TOP), at(0, 2 * PEAK - PANEL_TOP), at(half, PANEL_TOP));
-  group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.16, 8, false), frameMat));
-  // Lower rail under the sign.
-  const rail = new THREE.LineCurve3(at(-half, PANEL_BOTTOM - 0.1), at(half, PANEL_BOTTOM - 0.1));
-  group.add(new THREE.Mesh(new THREE.TubeGeometry(rail, 1, 0.12, 8, false), frameMat));
+  // The banner, readable from both directions.
+  const signMat = new THREE.MeshLambertMaterial({ map: bannerTexture(), alphaTest: 0.5, emissive: '#1c2a44' });
+  const bw = 0.62 * S;
+  const bh = (bw * 212) / 512;
+  group.add(twoSidedPanel(P(0, Z_LOWER + 0.02 * H + bh / 2), along, bw, bh, 0.12, signMat));
 
-  // Sign faces, one per side, each reading left-to-right for someone facing it.
-  const tex = signTexture();
-  const signMat = new THREE.MeshLambertMaterial({ map: tex, emissive: '#223344' });
-  const w = 2 * half - 0.5;
-  for (const n of [along.clone(), along.clone().negate()]) {
-    const right = new THREE.Vector3().crossVectors(n.clone().negate(), new THREE.Vector3(0, 0, 1));
-    const mid = center.clone().addScaledVector(n, 0.12).setZ((PANEL_BOTTOM + PANEL_TOP) / 2);
-    const hw = right.clone().multiplyScalar(w / 2);
-    const hh = new THREE.Vector3(0, 0, (PANEL_TOP - PANEL_BOTTOM) / 2);
-    const bl = mid.clone().sub(hw).sub(hh);
-    const br = mid.clone().add(hw).sub(hh);
-    const tr = mid.clone().add(hw).add(hh);
-    const tl = mid.clone().sub(hw).add(hh);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([bl, br, tr, bl, tr, tl].flatMap((v) => [v.x, v.y, v.z]), 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(6).fill([n.x, n.y, n.z]).flat(), 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
-    group.add(new THREE.Mesh(g, signMat));
-  }
-  // Thin edge between the two faces so the sign has some body from oblique angles.
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(w, 0.24, PANEL_TOP - PANEL_BOTTOM), frameMat);
-  edge.position.copy(center).setZ((PANEL_BOTTOM + PANEL_TOP) / 2);
-  edge.rotation.z = Math.atan2(across.y, across.x);
-  edge.scale.set(1, 0.95, 0.98);
-  group.add(edge);
-
+  for (const m of group.children) m.frustumCulled = false;
   return {
     group,
-    anchor: center.clone().setZ(PEAK + 1),
+    anchor: P(0, H + 1),
     posts,
     setHighlight(on) {
-      frameMat.emissive.set(on ? '#3a3a14' : '#000000');
-      signMat.emissive.set(on ? '#445566' : '#223344');
+      frame.emissive.set(on ? '#6a6a30' : '#44484e');
+      ladder.emissive.set(on ? '#6a6a30' : '#44484e');
+      signMat.emissive.set(on ? '#3d4f70' : '#1c2a44');
     },
   };
+}
+
+/** Flat band of width w following a path in the arch plane, shifted sideways by `offset`. */
+function ribbon(
+  path: THREE.Vector2[],
+  w: number,
+  offset: number,
+  material: THREE.Material,
+  P: (x: number, z: number) => THREE.Vector3,
+  repeat: number,
+): THREE.Mesh {
+  const pos: number[] = [];
+  const uv: number[] = [];
+  const idx: number[] = [];
+  let s = 0;
+  path.forEach((p, i) => {
+    const prev = path[Math.max(0, i - 1)];
+    const next = path[Math.min(path.length - 1, i + 1)];
+    const d = new THREE.Vector2().subVectors(next, prev).normalize();
+    // Outward side of a loop traversed up-left, over, down-right is to the left of travel.
+    const n = new THREE.Vector2(-d.y, d.x);
+    if (i > 0) s += p.distanceTo(prev);
+    for (const side of [-1, 1]) {
+      const q = p.clone().addScaledVector(n, offset + (side * w) / 2);
+      const v = P(q.x, q.y);
+      pos.push(v.x, v.y, v.z);
+      uv.push(s / repeat, side < 0 ? 0 : 1);
+    }
+    if (i > 0) {
+      const b = i * 2;
+      idx.push(b - 2, b - 1, b + 1, b - 2, b + 1, b);
+    }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, material);
 }

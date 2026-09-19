@@ -119,7 +119,7 @@ export class PlacesController {
   private hideTrees() {
     const nearBuilding = nearAnyBuilding(this.buildings, 2);
     const posts = this.landmarks.flatMap((l) => l.arch.posts);
-    this.app.trees.setHidden((x, y) => nearBuilding(x, y) || posts.some(([px, py]) => Math.hypot(x - px, y - py) < 3));
+    this.app.trees.setHidden((x, y) => nearBuilding(x, y) || posts.some(([px, py]) => Math.hypot(x - px, y - py) < 4.5));
   }
 
   private placeTarget(building: PlaceBuilding, place: Place): Target {
