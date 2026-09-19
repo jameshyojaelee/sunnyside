@@ -146,3 +146,45 @@ describe('stitchRings', () => {
     ).toHaveLength(0);
   });
 });
+
+describe('stitchLines', () => {
+  it('joins pieces end to end regardless of direction', async () => {
+    const { stitchLines, lineLength } = await import('../src/geo.ts');
+    const chains = stitchLines([
+      [
+        [0, 0],
+        [10, 0],
+      ],
+      [
+        [20, 0],
+        [10, 0],
+      ],
+      [
+        [20, 0],
+        [30, 1],
+      ],
+    ]);
+    expect(chains).toHaveLength(1);
+    expect(lineLength(chains[0])).toBeCloseTo(30.05, 1);
+  });
+
+  it('at a junction follows the straightest continuation, not the crossover', async () => {
+    const { stitchLines } = await import('../src/geo.ts');
+    const chains = stitchLines([
+      [
+        [0, 0],
+        [10, 0],
+      ],
+      [
+        [10, 0],
+        [20, 4],
+      ], // crossover, turns ~22 degrees
+      [
+        [10, 0],
+        [20, 0],
+      ], // straight on
+    ]);
+    const main = chains.find((c) => c.length === 3)!;
+    expect(main[2]).toEqual([20, 0]);
+  });
+});

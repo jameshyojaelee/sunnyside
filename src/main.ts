@@ -1,10 +1,32 @@
 import './style.css';
 import { MapApp } from './app.ts';
+import placesJson from './data/places.json';
+import { makeProjection } from './geo.ts';
 import { attachInput } from './input.ts';
 import type { MapData } from './mapdata.ts';
+import { validatePlaces, type Place } from './places.ts';
+import { PlacesController } from './placesController.ts';
+import { buildArch } from './render/arch.ts';
+import { buildTrains } from './render/trains.ts';
+import { PlaceCard } from './ui/card.ts';
 import { ICONS, roundButton } from './ui/icons.ts';
 
 const LOADING_LINES = ['Painting crosswalks…', 'Planting street trees…', 'Waiting for the 7 train…', 'Mowing Sunnyside Gardens…'];
+
+async function loadPlaces(): Promise<Place[]> {
+  // Dev-only test data: http://127.0.0.1:5173/?fixtures
+  if (import.meta.env.DEV && new URLSearchParams(location.search).has('fixtures')) {
+    return (await import('../tests/fixtures/places.json')).default as Place[];
+  }
+  return placesJson as Place[];
+}
+
+function usable(places: Place[]): Place[] {
+  const errors = validatePlaces(places);
+  if (errors.length) console.warn('[places] problems in places.json:\n' + errors.join('\n'));
+  const bad = new Set(errors.map((e) => e.match(/\(([^)]*)\)/)?.[1]));
+  return places.filter((p) => !bad.has(p.id));
+}
 
 async function start() {
   const line = document.getElementById('loading-line')!;
@@ -14,11 +36,11 @@ async function start() {
   const res = await fetch(`${import.meta.env.BASE_URL}data/sunnyside.json`);
   if (!res.ok) throw new Error(`Map data failed to load (${res.status})`);
   const data = (await res.json()) as MapData;
+  const proj = makeProjection(data.origin.lon, data.origin.lat);
 
   const app = new MapApp(document.getElementById('map')!, data);
-  attachInput(app, app.renderer.domElement, {});
-
   const ui = document.getElementById('ui')!;
+
   const top = document.createElement('div');
   top.className = 'topbar';
   const left = document.createElement('div');
@@ -36,7 +58,7 @@ async function start() {
   const plate = document.createElement('div');
   plate.className = 'panel title-plate';
   plate.innerHTML = `<div class="name">Sunnyside</div><div class="sub">Queens, New York</div>
-    <div class="count"><span class="diamond"></span><span id="place-count">0 places so far</span></div>`;
+    <div class="count"><span class="diamond"></span><span id="place-count"></span></div>`;
 
   const credit = document.createElement('div');
   credit.className = 'credit';
@@ -44,9 +66,47 @@ async function start() {
 
   ui.append(top, plate, credit);
 
+  const card = new PlaceCard(ui, () => controller.onCardClosed());
+  const controller = new PlacesController(app, proj, card, ui);
+
+  // Landmarks and the 7 train. The arch sign uses the page font, so wait for it first.
+  await document.fonts.load('900 54px Nunito').catch(() => undefined);
+  controller.setLandmarks([
+    {
+      id: 'sunnyside-arch',
+      name: 'Sunnyside Arch',
+      description:
+        "Sunnyside's welcome sign: an illuminated steel arch over 46th Street, just south of Queens Boulevard, with the neighborhood's name on a baby-blue panel.\n\nA local civic group put it up in 1983 to help the 46th Street shopping strip, and it has been restored several times since.",
+      link: 'https://en.wikipedia.org/wiki/Sunnyside_Arch',
+      arch: buildArch(data, proj),
+    },
+  ]);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const trains = buildTrains(data.viaduct, reducedMotion);
+  app.scene.add(trains.group);
+  if (!reducedMotion) app.addTicker(trains.update);
+  controller.onChange = (places) => {
+    document.getElementById('place-count')!.textContent = `${places.length} ${places.length === 1 ? 'place' : 'places'} so far`;
+  };
+  controller.setPlaces(usable(await loadPlaces()));
+
+  attachInput(app, app.renderer.domElement, {
+    onTap: (x, y) => controller.tap(x, y),
+    onHover: (x, y) => controller.hover(x, y),
+    onLeave: () => controller.clearHover(),
+    onEscape: () => controller.deselect(),
+  });
+
   window.clearInterval(ticker);
   document.getElementById('loading')!.classList.add('done');
-  if (import.meta.env.DEV) (window as unknown as { __app: MapApp }).__app = app;
+
+  if (import.meta.hot) {
+    // Build mode rewrites places.json; swap buildings in place instead of reloading the page.
+    import.meta.hot.accept('./data/places.json', (mod) => {
+      if (mod && !new URLSearchParams(location.search).has('fixtures')) controller.setPlaces(usable(mod.default as Place[]));
+    });
+  }
+  if (import.meta.env.DEV) Object.assign(window, { __app: app, __places: controller });
 }
 
 start().catch((err) => {

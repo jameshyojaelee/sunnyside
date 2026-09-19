@@ -130,11 +130,10 @@ export function buildTrees(flatTrees: number[], fade: FadeUniforms, shadowMateri
   const sprites = new THREE.Mesh(quad, mat);
   sprites.frustumCulled = false;
 
-  // Blob shadows, one ellipse per tree, stretched away from the sun.
-  const circle = new THREE.CircleGeometry(1, 12);
+  // Blob shadows: one quad per tree, cut to an ellipse in the fragment shader (2 triangles, not 12).
   const shadowGeo = new THREE.InstancedBufferGeometry();
-  shadowGeo.setAttribute('position', circle.getAttribute('position'));
-  shadowGeo.setIndex(circle.getIndex());
+  shadowGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3));
+  shadowGeo.setIndex([0, 1, 2, 0, 2, 3]);
   shadowGeo.setAttribute('aTree', inst);
   shadowGeo.instanceCount = count;
   const sMat = shadowMaterial.clone();
@@ -142,13 +141,22 @@ export function buildTrees(flatTrees: number[], fade: FadeUniforms, shadowMateri
   sMat.vertexShader = /* glsl */ `
     attribute vec4 aTree;
     uniform vec2 uSun;
+    varying vec2 vLocal;
     void main() {
+      vLocal = position.xy;
       float r = aTree.z * (aTree.w < 1.5 ? 0.3 : 0.2);
       vec2 dir = normalize(uSun);
       vec2 perp = vec2(-dir.y, dir.x);
       vec2 c = aTree.xy + uSun * aTree.z * 0.45;
       vec2 p = c + perp * position.x * r + dir * position.y * r * 1.5;
       gl_Position = projectionMatrix * viewMatrix * vec4(p, 0.05, 1.0);
+    }`;
+  sMat.fragmentShader = /* glsl */ `
+    uniform float uOpacity;
+    varying vec2 vLocal;
+    void main() {
+      if (dot(vLocal, vLocal) > 1.0) discard;
+      gl_FragColor = vec4(0.04, 0.07, 0.02, uOpacity);
     }`;
   const shadows = new THREE.Mesh(shadowGeo, sMat);
   shadows.frustumCulled = false;

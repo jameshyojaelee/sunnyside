@@ -10,7 +10,7 @@ import { buildViaduct } from './render/viaduct.ts';
 // Colors are authored as final screen values (Sims-era look), so turn off color management.
 THREE.ColorManagement.enabled = false;
 
-const MAX_SCALE = 9; // px per meter at closest zoom
+const MAX_SCALE = 12; // px per meter at closest zoom
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 interface Anim {
@@ -37,6 +37,9 @@ export class MapApp {
 
   private anim: Anim | null = null;
   private frameRequested = false;
+  /** Set when something changed (view, hover, data); cleared after a render. */
+  private dirty = true;
+  private lastRender = 0;
   private tickers = new Set<(now: number) => void>();
   private viewListeners = new Set<() => void>();
 
@@ -135,6 +138,14 @@ export class MapApp {
     });
   }
 
+  /** Camera target that puts world point (x, y, z) at screen (sx, sy) for the given scale. */
+  targetFor(x: number, y: number, z: number, scale: number, sx: number, sy: number): { tx: number; ty: number } {
+    const v: ViewState = { tx: x, ty: y, scale, azimuth: (this.anim?.to ?? this.view).azimuth };
+    const [px, py] = worldToScreen(v, this.vp, x, y, z);
+    const [tx, ty] = screenToGround(v, this.vp, this.vp.width / 2 - (sx - px), this.vp.height / 2 - (sy - py));
+    return { tx, ty };
+  }
+
   screenToGround(sx: number, sy: number): [number, number] {
     return screenToGround(this.view, this.vp, sx, sy);
   }
@@ -158,6 +169,11 @@ export class MapApp {
   }
 
   requestRender() {
+    this.dirty = true;
+    this.schedule();
+  }
+
+  private schedule() {
     if (this.frameRequested) return;
     this.frameRequested = true;
     requestAnimationFrame(this.frame);
@@ -176,6 +192,13 @@ export class MapApp {
 
   private frame = (now: number) => {
     this.frameRequested = false;
+    // Ambient animation only (trains, diamonds): 30 fps is plenty and saves battery.
+    if (!this.dirty && !this.anim && now - this.lastRender < 32) {
+      if (this.tickers.size) this.schedule();
+      return;
+    }
+    this.dirty = false;
+    this.lastRender = now;
     if (this.anim) {
       const { from, to, start, ms } = this.anim;
       const t = Math.min(1, (now - start) / ms);
@@ -195,6 +218,6 @@ export class MapApp {
     applyToCamera(this.camera, this.view, this.vp);
     this.trees.setAzimuth(this.view.azimuth);
     this.renderer.render(this.scene, this.camera);
-    if (this.anim || this.tickers.size) this.requestRender();
+    if (this.anim || this.tickers.size) this.schedule();
   };
 }

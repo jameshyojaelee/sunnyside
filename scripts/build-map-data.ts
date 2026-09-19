@@ -12,9 +12,11 @@ import {
   pointInRing,
   rng,
   round1,
+  lineLength,
   signedArea,
   simplifyLine,
   simplifyRing,
+  stitchLines,
   stitchRings,
   type Pt,
 } from '../src/geo.ts';
@@ -106,6 +108,7 @@ async function main() {
   const rails: number[][] = [];
   const viaduct: number[][] = [];
   const areas: Array<{ k: AreaKind; r: Pt[][] }> = [];
+  const viaductPieces: Pt[][] = [];
 
   const classify = (t: Record<string, string>): AreaKind | null => {
     if (t.natural === 'water') return 'water';
@@ -152,7 +155,7 @@ async function main() {
         if (t.tunnel === 'yes' || t.tunnel === 'building_passage') continue;
         const layer = Number.parseInt(t.layer ?? '0', 10) || 0;
         const line = flat(simplifyLine(pts, 0.5));
-        if (t.railway === 'subway' && t.bridge && t.bridge !== 'no' && layer >= 1) viaduct.push(...clipNearBoundary(line, 40));
+        if (t.railway === 'subway' && t.bridge && t.bridge !== 'no' && layer >= 1) viaductPieces.push(pts);
         else rails.push(line);
         continue;
       }
@@ -167,6 +170,9 @@ async function main() {
       addPolygons(kind, stitchRings(frag('outer')), stitchRings(frag('inner')));
     }
   }
+
+  // Elevated tracks: join OSM pieces into whole tracks (trains run along them), then trim at the edge.
+  for (const chain of stitchLines(viaductPieces)) viaduct.push(...clipNearBoundary(flat(chain), 40));
 
   // ---- Spatial index of obstacles (roads, rails, viaduct) for tree placement ---------------------
   const CELL = 40;
@@ -388,7 +394,8 @@ async function main() {
   console.log(
     [
       `origin ${origin.lon}, ${origin.lat}; core ${(core.maxX - core.minX).toFixed(0)} x ${(core.maxY - core.minY).toFixed(0)} m; grid angle ${gridAngle} deg`,
-      `roads ${roads.length} (bridges ${roads.filter((r) => r.l > 0).length}), areas ${areas.length}, rails ${rails.length}, viaduct ${viaduct.length}`,
+      `roads ${roads.length} (bridges ${roads.filter((r) => r.l > 0).length}), areas ${areas.length}, rails ${rails.length}`,
+      `elevated tracks ${viaduct.length}: ${viaduct.map((v) => Math.round(lineLength(toPts(v)))).sort((a, b) => b - a).join(', ')} m`,
       `trees ${trees.length / 4} (street ${streetCount}, ${pushed} nudged off asphalt; scatter ${scatterCount})`,
       `public/data/sunnyside.json ${(json.length / 1024).toFixed(0)} KB`,
       `dev-data: ${buildings.length} buildings, ${pois.length} named places`,

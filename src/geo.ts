@@ -190,3 +190,56 @@ export function rng(seed: number): () => number {
 }
 
 export const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * Joins open polylines that share endpoints into longer chains (e.g. OSM track pieces into whole
+ * tracks). At a junction it continues along the piece that turns the least.
+ */
+export function stitchLines(lines: Pt[][], tolerance = 0.5): Pt[][] {
+  const pool = lines.filter((l) => l.length >= 2).map((l) => l.slice());
+  const near = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]) <= tolerance;
+  const heading = (a: Pt, b: Pt) => Math.atan2(b[1] - a[1], b[0] - a[0]);
+  const turn = (h1: number, h2: number) => {
+    const d = Math.abs(h1 - h2) % (2 * Math.PI);
+    return d > Math.PI ? 2 * Math.PI - d : d;
+  };
+  const chains: Pt[][] = [];
+  while (pool.length) {
+    let chain = pool.shift()!;
+    // Extend forward, then flip and extend the other end.
+    for (let pass = 0; pass < 2; pass++) {
+      for (;;) {
+        const end = chain[chain.length - 1];
+        const h = heading(chain[chain.length - 2], end);
+        let best = -1;
+        let bestTurn = Math.PI / 3; // never follow a piece that doubles back
+        let reversed = false;
+        pool.forEach((l, i) => {
+          for (const rev of [false, true]) {
+            const seq = rev ? l.slice().reverse() : l;
+            if (!near(seq[0], end)) continue;
+            const t = turn(h, heading(seq[0], seq[1]));
+            if (t < bestTurn) {
+              bestTurn = t;
+              best = i;
+              reversed = rev;
+            }
+          }
+        });
+        if (best < 0) break;
+        const next = pool.splice(best, 1)[0];
+        chain = chain.concat((reversed ? next.slice().reverse() : next).slice(1));
+      }
+      chain.reverse();
+    }
+    chains.push(chain);
+  }
+  return chains;
+}
+
+/** Total length of a polyline. */
+export function lineLength(line: Pt[]): number {
+  let s = 0;
+  for (let i = 1; i < line.length; i++) s += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+  return s;
+}

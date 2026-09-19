@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { buildStrips } from './strips.ts';
 
-const DECK_TOP = 8.6;
+export const VIADUCT_DECK_TOP = 8.6;
+const DECK_TOP = VIADUCT_DECK_TOP;
 const DECK_BOTTOM = 7.4;
 const HALF_WIDTH = 2.7;
 const PILLAR_SPACING = 20;

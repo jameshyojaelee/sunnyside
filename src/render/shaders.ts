@@ -83,7 +83,9 @@ export function groundMaterial(color: THREE.ColorRepresentation, pattern: Ground
       ${FADE_GLSL}
       void main() {
         ${PATTERN_GLSL[pattern]}
-        gl_FragColor = vec4(mix(forestColor(vWorld), c, insideAmount(vWorld)), 1.0);
+        float k = insideAmount(vWorld);
+        // Forest noise only matters near and beyond the boundary; skip it deep inside.
+        gl_FragColor = vec4(k > 0.995 ? c : mix(forestColor(vWorld), c, k), 1.0);
       }`,
     depthTest: false,
     depthWrite: false,
@@ -105,7 +107,9 @@ export function grassMaterial(fade: FadeUniforms): THREE.ShaderMaterial {
       ${NOISE_GLSL}
       ${FADE_GLSL}
       void main() {
-        gl_FragColor = vec4(mix(forestColor(vWorld), grassColor(vWorld), insideAmount(vWorld)), 1.0);
+        float k = insideAmount(vWorld);
+        vec3 c = k > 0.005 ? grassColor(vWorld) : vec3(0.0);
+        gl_FragColor = vec4(k > 0.995 ? c : mix(forestColor(vWorld), c, k), 1.0);
       }`,
     depthTest: false,
     depthWrite: false,

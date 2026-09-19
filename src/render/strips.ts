@@ -12,17 +12,19 @@ export interface StripLine {
  * bend. Drawn in a single color per layer, overlapping pieces merge invisibly, which is what makes
  * road intersections clean.
  */
-export function buildStrips(lines: StripLine[], z = 0, discSegments = 10): THREE.BufferGeometry {
+export function buildStrips(lines: StripLine[], z = 0, discSegments?: number): THREE.BufferGeometry {
   const pos: number[] = [];
   const idx: number[] = [];
   const disc = (cx: number, cy: number, r: number) => {
+    // Narrow strips need fewer segments for a round-looking join.
+    const segs = discSegments ?? (r < 1.5 ? 6 : r < 4 ? 8 : 10);
     const c = pos.length / 3;
     pos.push(cx, cy, z);
-    for (let k = 0; k < discSegments; k++) {
-      const a = (k / discSegments) * Math.PI * 2;
+    for (let k = 0; k < segs; k++) {
+      const a = (k / segs) * Math.PI * 2;
       pos.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r, z);
     }
-    for (let k = 0; k < discSegments; k++) idx.push(c, c + 1 + k, c + 1 + ((k + 1) % discSegments));
+    for (let k = 0; k < segs; k++) idx.push(c, c + 1 + k, c + 1 + ((k + 1) % segs));
   };
 
   for (const { p, hw } of lines) {
