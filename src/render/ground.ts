@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { PARK_LOOKS } from '../data/parkLooks.ts';
 import type { AreaKind, MapData } from '../mapdata.ts';
+import { courtGeometry, courtTexture, findCourts, type Court } from './courts.ts';
 import { groundMaterial, grassMaterial, type FadeUniforms, type GroundPattern } from './shaders.ts';
 import { buildStrips, type StripLine } from './strips.ts';
 
@@ -81,8 +83,9 @@ const AREA_STYLE: Record<AreaKind, [THREE.ColorRepresentation, GroundPattern]> =
   water: ['#3f4f86', 'water'],
   pitch: ['#79a843', 'pitch'],
   playground: ['#c2a778', 'grain'],
+  dogrun: ['#9e8a68', 'gravel'],
 };
-const AREA_ORDER: AreaKind[] = ['grass', 'park', 'wood', 'cemetery', 'rail', 'water', 'pitch', 'playground'];
+const AREA_ORDER: AreaKind[] = ['grass', 'park', 'wood', 'cemetery', 'rail', 'water', 'dogrun', 'pitch', 'playground'];
 
 export const COLORS = {
   sidewalk: '#bcb6a5',
@@ -90,7 +93,18 @@ export const COLORS = {
   line: '#dedcd2',
   railBed: '#5a4c40',
   railSteel: '#a4a4a8',
+  ballast: '#8b8274',
+  thirdRail: '#a89877',
 };
+
+/** A court's polygon, painted with its own texture (inside the boundary, so no forest fade). */
+function courtMesh(c: Court, order: number): THREE.Mesh {
+  const m = new THREE.Mesh(courtGeometry(c), new THREE.MeshBasicMaterial({ map: courtTexture(c), depthTest: false, depthWrite: false }));
+  m.renderOrder = order;
+  m.frustumCulled = false;
+  m.matrixAutoUpdate = false;
+  return m;
+}
 
 function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, order: number): THREE.Mesh {
   const m = new THREE.Mesh(geo, mat);
@@ -112,11 +126,14 @@ export function buildGround(data: MapData, fade: FadeUniforms): { group: THREE.G
   plane.translate((minX + maxX) / 2, (minY + maxY) / 2, 0);
   group.add(mesh(plane, grassMaterial(fade), order++));
 
-  // Land use, painted in a fixed order.
+  // Land use, painted in a fixed order. Courts and the parks we modeled get their own paint below.
+  const courts = findCourts(data);
+  const painted = new Set(courts.map((c) => c.id));
   for (const kind of AREA_ORDER) {
     const geos: THREE.BufferGeometry[] = [];
+    const extra: Array<[THREE.BufferGeometry, string]> = [];
     for (const a of data.areas) {
-      if (a.k !== kind) continue;
+      if (a.k !== kind || (a.id && painted.has(a.id))) continue;
       const toV = (r: number[]) => {
         const v: THREE.Vector2[] = [];
         for (let i = 0; i < r.length; i += 2) v.push(new THREE.Vector2(r[i], r[i + 1]));
@@ -127,20 +144,31 @@ export function buildGround(data: MapData, fade: FadeUniforms): { group: THREE.G
       const g = new THREE.ShapeGeometry(shape);
       g.deleteAttribute('uv');
       g.deleteAttribute('normal');
-      geos.push(g);
+      const look = a.id ? PARK_LOOKS[a.id] : undefined;
+      if (look) extra.push([g, look.ground]);
+      else geos.push(g);
     }
-    if (!geos.length) continue;
     const [color, pattern] = AREA_STYLE[kind];
-    group.add(mesh(mergeGeometries(geos)!, groundMaterial(color, pattern, fade), order++));
-    geos.forEach((g) => g.dispose());
+    if (geos.length) {
+      group.add(mesh(mergeGeometries(geos)!, groundMaterial(color, pattern, fade), order++));
+      geos.forEach((g) => g.dispose());
+    }
+    // Paved playgrounds: asphalt or concrete instead of grass.
+    for (const [g, c] of extra) group.add(mesh(g, groundMaterial(c, 'grain', fade), order++));
   }
+
+  // Painted courts, each with its own markings.
+  for (const c of courts) group.add(courtMesh(c, order++));
 
   // Draw slot for place lots (parking, drive-thru lanes): above land use, below rails and roads.
   const lotOrder = order++;
 
-  // Ground-level railway tracks: bed, then two steel rails left by an inner bed strip.
+  // Ground-level railway tracks: ballast, sleepers, then two steel rails left by an inner bed strip,
+  // plus the LIRR's third rail under its cover board.
   const railBed = groundMaterial(COLORS.railBed, 'grain', fade);
   const railSteel = groundMaterial(COLORS.railSteel, 'plain', fade);
+  group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 2.4 }))), groundMaterial(COLORS.ballast, 'gravel', fade), order++));
+  group.add(mesh(buildStrips(data.thirdRails.map((p) => ({ p, hw: 0.28 }))), groundMaterial(COLORS.thirdRail, 'grain', fade), order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 1.4 }))), railBed, order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 0.82 }))), railSteel, order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 0.68 }))), railBed, order++));

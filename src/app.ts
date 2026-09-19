@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { applyToCamera, fitScale, screenToGround, worldToScreen, type ViewState, type Viewport } from './camera.ts';
 import type { MapData } from './mapdata.ts';
 import { buildFadeUniforms, buildGround } from './render/ground.ts';
+import { buildParkProps } from './render/parkProps.ts';
 import { makeShadowMaterial } from './render/shadow.ts';
 import type { FadeUniforms } from './render/shaders.ts';
 import { buildTrees, type Trees } from './render/trees.ts';
@@ -79,6 +80,7 @@ export class MapApp {
     this.trees = buildTrees(data.trees, this.fade, this.shadowMaterial, this.sunOffset);
     this.scene.add(this.trees.group);
     this.scene.add(buildViaduct(data, this.shadowMaterial, this.sunOffset));
+    this.scene.add(buildParkProps(data, this.shadowMaterial, this.sunOffset));
 
     const c = data.core;
     this.view = { tx: (c.minX + c.maxX) / 2, ty: (c.minY + c.maxY) / 2, scale: 1, azimuth: this.baseAzimuth };

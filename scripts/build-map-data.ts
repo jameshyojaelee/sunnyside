@@ -24,12 +24,15 @@ import {
   streetMeetsLine,
   type Pt,
 } from '../src/geo.ts';
-import type { AreaKind, DevBuilding, DevPoi, MapData } from '../src/mapdata.ts';
+import { corridorPieces, offsetLine } from '../src/corridor.ts';
+import { PARK_LOOKS } from '../src/data/parkLooks.ts';
+import type { AreaKind, DevBuilding, DevPoi, MapData, PropKind } from '../src/mapdata.ts';
 import { roadLayer, roadStyle } from '../src/roads.ts';
 
 const RAW = new URL('../data-raw/', import.meta.url);
 const MARGIN = 400; // meters of context drawn around the boundary
 const FRINGE = 90; // meters of forest band just outside the boundary
+const CORRIDOR = 100; // tracks this close to the north edge are shown, with the ground between
 
 interface LatLon {
   lat: number;
@@ -75,10 +78,33 @@ async function main() {
   const ntaYs = nta.flat(2).map((p) => p[1]);
   const north = regionNorthOf(lie, 9, Math.min(...ntaXs) - 100, Math.max(...ntaXs) + 100, Math.max(...ntaYs) + 100);
   const trimmed = polygonClipping.intersection(nta as Polygon[], [[...north, north[0]]] as Polygon);
-  const boundary: Pt[][][] = trimmed
-    .map((poly) => poly.map((ring) => simplifyRing(normalizeRing(ring as Pt[]), 1)).filter((r): r is Pt[] => !!r))
-    .filter((poly) => poly.length && Math.abs(signedArea(poly[0])) > 5000);
-  if (!boundary.length) throw new Error('Boundary vanished after the LIE cut');
+  const cleanPolys = (polys: number[][][][]): Pt[][][] =>
+    polys
+      .map((poly) => poly.map((ring) => simplifyRing(normalizeRing(ring as Pt[]), 1)).filter((r): r is Pt[] => !!r))
+      .filter((poly) => poly.length && Math.abs(signedArea(poly[0])) > 5000);
+  const neighborhood = cleanPolys(trimmed);
+  if (!neighborhood.length) throw new Error('Boundary vanished after the LIE cut');
+
+  // Sunnyside Yard and the LIRR lines run just outside the north edge. Keep the nearest tracks
+  // visible (not faded into forest), with the ground between them and the neighborhood. Only the
+  // north side: the freight line near the LIE stays hidden.
+  const ntaMidY = (Math.min(...nta.flat(2).map((p) => p[1])) + Math.max(...nta.flat(2).map((p) => p[1]))) / 2;
+  const tracks = base.elements
+    .filter((e) => e.type === 'way' && e.tags?.railway === 'rail' && !e.tags.tunnel && e.geometry)
+    .map((e) => simplifyLine(e.geometry!.map(P), 0.5))
+    .filter((t) => t.some((p) => p[1] > ntaMidY));
+  const mainOutline = neighborhood.slice().sort((a, b) => Math.abs(signedArea(b[0])) - Math.abs(signedArea(a[0])))[0][0];
+  const distToHood = (p: Pt) => (neighborhood.some((poly) => pointInPolygon(p[0], p[1], poly)) ? 0 : Math.min(...neighborhood.map((poly) => distToRing(p[0], p[1], poly[0]))));
+  const pieces = corridorPieces(tracks, mainOutline, distToHood, CORRIDOR, 9);
+  const withCorridor = polygonClipping.union(neighborhood.map((poly) => poly.map((r) => [...r, r[0]])) as Polygon[], ...pieces.bands, ...pieces.between);
+  const boundary = cleanPolys(withCorridor).map((poly) => poly.slice(0, 1)); // no holes: gaps between tracks stay visible
+  // The corridor itself: railway ground, and no forest scattered over the tracks.
+  const hoodPolys = neighborhood.map((poly) => poly.map((r) => [...r, r[0]])) as Polygon[];
+  const corridorOnly = cleanPolys(polygonClipping.difference(boundary.map((poly) => poly.map((r) => [...r, r[0]])) as Polygon[], hoodPolys));
+  const inCorridor = (x: number, y: number) => corridorOnly.some((poly) => pointInPolygon(x, y, poly));
+  // Ballast under the tracks themselves; the land between them and the streets stays plain.
+  const ballast = cleanPolys(polygonClipping.difference(polygonClipping.union(pieces.bands[0], ...pieces.bands.slice(1)) as Polygon[], hoodPolys)).map((poly) => poly.slice(0, 1));
+  const distToHoodEdge = (x: number, y: number) => Math.min(...neighborhood.map((poly) => distToRing(x, y, poly[0])));
   const bPts = boundary.flat(2);
   const core = {
     minX: Math.min(...bPts.map((p) => p[0])),
@@ -123,8 +149,9 @@ async function main() {
   // ---- OSM base layers -----------------------------------------------------------------------
   const roads: MapData['roads'] = [];
   const rails: number[][] = [];
+  const thirdRails: number[][] = [];
   const viaduct: number[][] = [];
-  const areas: Array<{ k: AreaKind; r: Pt[][] }> = [];
+  const areas: Array<{ k: AreaKind; r: Pt[][]; id?: string; s?: string }> = [];
   const viaductPieces: Pt[][] = [];
 
   const classify = (t: Record<string, string>): AreaKind | null => {
@@ -134,20 +161,26 @@ async function main() {
     if (t.natural === 'wood') return 'wood';
     if (t.leisure === 'pitch') return 'pitch';
     if (t.leisure === 'playground') return 'playground';
-    if (['park', 'garden', 'recreation_ground', 'dog_park'].includes(t.leisure) || ['recreation_ground', 'village_green'].includes(t.landuse))
+    if (t.leisure === 'dog_park') return 'dogrun';
+    if (['park', 'garden', 'recreation_ground'].includes(t.leisure) || ['recreation_ground', 'village_green'].includes(t.landuse))
       return 'park';
     if (t.landuse === 'grass') return 'grass';
     return null;
   };
 
-  const addPolygons = (kind: AreaKind, outers: Pt[][], inners: Pt[][]) => {
+  // Parks, courts and play areas keep their OSM id (for hand-tuned looks) and sport.
+  const areaMeta = (el: OsmEl, t: Record<string, string>) =>
+    t.leisure ? { id: `${el.type[0]}${el.id}`, ...(t.sport ? { s: t.sport } : {}) } : {};
+  for (const poly of ballast) areas.push({ k: 'rail', r: poly });
+
+  const addPolygons = (kind: AreaKind, outers: Pt[][], inners: Pt[][], meta: { id?: string; s?: string } = {}) => {
     for (const o of outers) {
       const outer = simplifyRing(normalizeRing(o), 0.5);
       if (!outer) continue;
       const holes = inners
         .map((h) => simplifyRing(normalizeRing(h), 0.5))
         .filter((h): h is Pt[] => !!h && pointInRing(h[0][0], h[0][1], outer));
-      areas.push({ k: kind, r: [outer, ...holes] });
+      areas.push({ k: kind, r: [outer, ...holes], ...meta });
     }
   };
 
@@ -173,18 +206,22 @@ async function main() {
         const layer = Number.parseInt(t.layer ?? '0', 10) || 0;
         const line = flat(simplifyLine(pts, 0.5));
         if (t.railway === 'subway' && t.bridge && t.bridge !== 'no' && layer >= 1) viaductPieces.push(pts);
-        else rails.push(line);
+        else {
+          rails.push(line);
+          // LIRR tracks carry a third rail (with a wooden cover board) beside the running rails.
+          if (t.railway === 'rail' && t.electrified === 'rail') thirdRails.push(flat(offsetLine(toPts(line), 1.45)));
+        }
         continue;
       }
       const kind = classify(t);
       const first = el.geometry[0];
       const last = el.geometry[el.geometry.length - 1];
-      if (kind && first.lat === last.lat && first.lon === last.lon) addPolygons(kind, [pts], []);
+      if (kind && first.lat === last.lat && first.lon === last.lon) addPolygons(kind, [pts], [], areaMeta(el, t));
     } else if (el.type === 'relation' && el.members) {
       const kind = classify(t);
       if (!kind) continue;
       const frag = (role: string) => el.members!.filter((m) => m.type === 'way' && m.role === role && m.geometry).map((m) => m.geometry!.map(P));
-      addPolygons(kind, stitchRings(frag('outer')), stitchRings(frag('inner')));
+      addPolygons(kind, stitchRings(frag('outer')), stitchRings(frag('inner')), areaMeta(el, t));
     }
   }
 
@@ -279,7 +316,7 @@ async function main() {
       }
   });
   const areaAt = (x: number, y: number): AreaKind | null => {
-    const order: AreaKind[] = ['water', 'rail', 'pitch', 'playground', 'wood', 'cemetery', 'park', 'grass'];
+    const order: AreaKind[] = ['water', 'rail', 'pitch', 'playground', 'dogrun', 'wood', 'cemetery', 'park', 'grass'];
     let best: AreaKind | null = null;
     for (const i of areaIndex.get(`${Math.floor(x / 100)},${Math.floor(y / 100)}`) ?? []) {
       const a = areas[i];
@@ -288,7 +325,58 @@ async function main() {
     return best;
   };
 
+  // ---- Playground equipment and park structures -------------------------------------------------
+  const inPark = (x: number, y: number) => areas.some((a) => (a.k === 'park' || a.k === 'playground') && pointInPolygon(x, y, a.r));
+  const parkRaw = await readRaw<{ elements: OsmEl[] }>('osm-parks.json');
+  const props: MapData['props'] = [];
+  const toiletRings: Pt[][] = [];
+  const propKind = (t: Record<string, string>): PropKind | null => {
+    const byPlay: Record<string, PropKind> = { structure: 'structure', swing: 'swing', climbingframe: 'climbingframe', splash_pad: 'splash', sandpit: 'sandpit' };
+    if (t.playground) return byPlay[t.playground] ?? null;
+    if (t.man_made === 'flagpole') return 'flagpole';
+    if (t.building === 'toilets' || t.amenity === 'toilets') return 'toilets';
+    return null;
+  };
+  // Buildings first, so a toilets node inside one isn't drawn twice.
+  const parkEls = parkRaw.elements.slice().sort((a, b) => (a.type === 'way' ? 0 : 1) - (b.type === 'way' ? 0 : 1));
+  for (const el of parkEls) {
+    const t = el.tags ?? {};
+    const k = propKind(t);
+    if (!k) continue;
+    const pts = el.type === 'node' ? [P({ lat: el.lat!, lon: el.lon! })] : (el.geometry ?? []).map(P);
+    if (!pts.length) continue;
+    const cx = pts.reduce((sum, p) => sum + p[0], 0) / pts.length;
+    const cy = pts.reduce((sum, p) => sum + p[1], 0) / pts.length;
+    if (!inBounds(cx, cy) || !inPark(cx, cy)) continue;
+    if (k === 'toilets' && el.type === 'node' && toiletRings.some((r) => pointInRing(cx, cy, r))) continue;
+    const closed = pts.length > 3 && pts[0][0] === pts[pts.length - 1][0] && pts[0][1] === pts[pts.length - 1][1];
+    const shape = el.type === 'node' ? undefined : closed ? normalizeRing(pts) : pts;
+    if (k === 'toilets' && shape && closed) toiletRings.push(shape);
+    const h = Number.parseFloat(t.height ?? '');
+    props.push({
+      k,
+      x: round1(cx),
+      y: round1(cy),
+      ...(shape ? { [closed ? 'r' : 'l']: flat(shape) } : {}),
+      ...(Number.isFinite(h) ? { h } : {}),
+    });
+  }
+
   // ---- Trees ------------------------------------------------------------------------------------
+  // Parks we modeled after real life are paved: their trees grow along the edges and over shaded
+  // play areas, not on the courts.
+  const lookParks = areas.filter((a) => a.id && PARK_LOOKS[a.id]).map((a) => ({ ring: a.r[0], look: PARK_LOOKS[a.id!] }));
+  const shadedRings = lookParks.flatMap((p) => areas.filter((a) => a.id && p.look.shaded.includes(a.id)).map((a) => a.r[0]));
+  const lookTreeChance = (x: number, y: number): number | null => {
+    const park = lookParks.find((p) => pointInRing(x, y, p.ring));
+    if (!park) return null;
+    // Keep clear of play equipment and park buildings.
+    if (props.some((q) => Math.hypot(q.x - x, q.y - y) < 4 || (q.r && pointInRing(x, y, toPts(q.r))))) return 0;
+    if (shadedRings.some((r) => pointInRing(x, y, r))) return park.look.treeDensity;
+    const kind = areaAt(x, y);
+    if (kind === 'pitch' || kind === 'playground' || kind === 'dogrun') return 0;
+    return distToRing(x, y, park.ring) <= park.look.treeBand ? park.look.treeDensity : 0;
+  };
   const CONIFERS = /^(Pinus|Picea|Abies|Taxus|Juniperus|Cedrus|Thuja|Pseudotsuga|Metasequoia|Taxodium|Chamaecyparis|Cryptomeria|Tsuga)/;
   const rawTrees = await readRaw<Array<{ location?: { coordinates: [number, number] }; dbh?: string; genusspecies?: string }>>('trees.json');
   const trees: number[] = [];
@@ -349,11 +437,22 @@ async function main() {
         if (distOutside(x, y) > FRINGE) continue;
         p = 0.34;
         coniferShare = 0.85;
+      } else if (inCorridor(x, y)) {
+        // Rail corridor: bare tracks, with the tree line that screens them from the streets.
+        if (areaAt(x, y) === 'rail') continue;
+        p = distToHoodEdge(x, y) <= 12 ? 0.25 : 0.05;
+        coniferShare = 0.2;
       } else {
         const kind = areaAt(x, y);
-        if (kind === 'water' || kind === 'rail' || kind === 'pitch' || kind === 'playground') continue;
-        p = kind === 'wood' ? 0.8 : kind === 'park' ? 0.22 : kind === 'cemetery' ? 0.12 : kind === 'grass' ? 0.08 : 0.028;
-        coniferShare = kind === 'wood' ? 0.85 : kind === 'cemetery' ? 0.3 : 0.45;
+        const modeled = lookTreeChance(x, y);
+        if (modeled !== null) {
+          p = modeled;
+          coniferShare = 0.1;
+        } else {
+          if (kind === 'water' || kind === 'rail' || kind === 'pitch' || kind === 'playground') continue;
+          p = kind === 'wood' ? 0.8 : kind === 'park' || kind === 'dogrun' ? 0.22 : kind === 'cemetery' ? 0.12 : kind === 'grass' ? 0.08 : 0.028;
+          coniferShare = kind === 'wood' ? 0.85 : kind === 'cemetery' ? 0.3 : 0.45;
+        }
       }
       if (roll > p) continue;
       if (!inside && areaAt(x, y) === 'water') continue;
@@ -404,7 +503,7 @@ async function main() {
   areas.push(...keptAreas);
 
   // ---- Write public data ------------------------------------------------------------------------
-  const areaOrder: AreaKind[] = ['grass', 'park', 'wood', 'cemetery', 'rail', 'water', 'pitch', 'playground'];
+  const areaOrder: AreaKind[] = ['grass', 'park', 'wood', 'cemetery', 'rail', 'water', 'dogrun', 'pitch', 'playground'];
   areas.sort((a, b) => areaOrder.indexOf(a.k) - areaOrder.indexOf(b.k));
   const r1 = (b: typeof core) => ({ minX: round1(b.minX), minY: round1(b.minY), maxX: round1(b.maxX), maxY: round1(b.maxY) });
   const data: MapData = {
@@ -414,8 +513,10 @@ async function main() {
     gridAngle,
     boundary: boundary.map((poly) => poly.map(flat)),
     roads,
-    areas: areas.map((a) => ({ k: a.k, r: a.r.map(flat) })),
+    areas: areas.map((a) => ({ k: a.k, r: a.r.map(flat), ...(a.id ? { id: a.id } : {}), ...(a.s ? { s: a.s } : {}) })),
     rails,
+    thirdRails: thirdRails.filter(touches),
+    props,
     viaduct,
     viaductParts,
     aqueduct,
