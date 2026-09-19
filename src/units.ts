@@ -18,8 +18,10 @@ export function unitSpan(ring: Pt[], edge: number, storefront: Pt, neighbors: Pt
   const s = along(storefront);
   // Only neighbors whose shops open onto this same wall.
   const on = neighbors.filter((p) => distToSegment(p[0], p[1], a[0], a[1], b[0], b[1]) < 6).map(along);
-  const before = on.filter((x) => x < s - 0.5).sort((x, y) => y - x)[0];
-  const after = on.filter((x) => x > s + 0.5).sort((x, y) => x - y)[0];
+  // A neighbor farther than two shop widths away likely has unmapped shops in between: ignore it.
+  const near = on.filter((x) => Math.abs(x - s) <= 2 * DEFAULT_W);
+  const before = near.filter((x) => x < s - 0.5).sort((x, y) => y - x)[0];
+  const after = near.filter((x) => x > s + 0.5).sort((x, y) => x - y)[0];
   let s0 = before !== undefined ? (before + s) / 2 : s - DEFAULT_W / 2;
   let s1 = after !== undefined ? (after + s) / 2 : s + DEFAULT_W / 2;
   // Keep a believable shop width and stay on the wall.

@@ -27,6 +27,10 @@ describe('unitSpan', () => {
     expect(unitSpan(block, 0, [1, 1], []).s0).toBe(0);
   });
 
+  it('ignores a neighbor so far away that other shops likely sit in between', () => {
+    expect(unitSpan(block, 0, [30, 1], [[5, 1]])).toEqual({ s0: 26.5, s1: 33.5 });
+  });
+
   it('never makes a shop narrower than 4 m', () => {
     const { s0, s1 } = unitSpan(block, 0, [10, 1], [
       [9, 1],
