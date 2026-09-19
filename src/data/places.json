@@ -1,5 +1,72 @@
 [
   {
+    "id": "makina",
+    "name": "Makina",
+    "category": "restaurant",
+    "color": "#2f8a4f",
+    "description": "Eritrean-Ethiopean cuisine. Perfect for a date, good flavors!",
+    "address": "46-11 Skillman Avenue",
+    "visited": "2026-05-24",
+    "osmBuildingId": "w241831695",
+    "footprint": [
+      [
+        -73.9175126,
+        40.746711
+      ],
+      [
+        -73.9176902,
+        40.7467318
+      ],
+      [
+        -73.9177079,
+        40.7466444
+      ],
+      [
+        -73.9175304,
+        40.7466237
+      ]
+    ],
+    "height": 12.2,
+    "storefront": [
+      -73.9175912,
+      40.7466758
+    ],
+    "facadeEdge": 2
+  },
+  {
+    "id": "prung-asian-cuisine",
+    "name": "Prung",
+    "category": "restaurant",
+    "description": "Thai restaurant with really good duck. The best Thai outside of Thailand.",
+    "address": "51-20 Skillman Avenue",
+    "osmBuildingId": "w280371296",
+    "footprint": [
+      [
+        -73.9126823,
+        40.7456584
+      ],
+      [
+        -73.9126066,
+        40.7456493
+      ],
+      [
+        -73.9125711,
+        40.7458213
+      ],
+      [
+        -73.9126468,
+        40.7458303
+      ]
+    ],
+    "height": 6.2,
+    "storefront": [
+      -73.9125995,
+      40.7458069
+    ],
+    "facadeEdge": 2,
+    "visited": "2026-09-17"
+  },
+  {
     "id": "wendy-s",
     "name": "Wendy's",
     "category": "restaurant",
