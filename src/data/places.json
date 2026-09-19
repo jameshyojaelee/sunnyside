@@ -1,5 +1,41 @@
 [
   {
+    "id": "ariyoshi",
+    "name": "Ariyoshi",
+    "category": "restaurant",
+    "description": "Expensive sushi for mid taste",
+    "address": "41-13 Queens Blvd",
+    "osmBuildingId": "w280368566",
+    "footprint": [
+      [
+        -73.9227631,
+        40.744177
+      ],
+      [
+        -73.9231171,
+        40.7442292
+      ],
+      [
+        -73.9231716,
+        40.7439735
+      ],
+      [
+        -73.9231586,
+        40.7439591
+      ],
+      [
+        -73.9228188,
+        40.7439168
+      ]
+    ],
+    "height": 5.8,
+    "storefront": [
+      -73.92309,
+      40.7440299
+    ],
+    "facadeEdge": 3
+  },
+  {
     "id": "chase-bank",
     "name": "Chase Bank",
     "category": "service",
@@ -80,6 +116,42 @@
     "storefront": [
       -73.9216838,
       40.7412845
+    ],
+    "facadeEdge": 2
+  },
+  {
+    "id": "fuyu-ramen-and-sake",
+    "name": "Fuyu Ramen and Sake",
+    "category": "restaurant",
+    "description": "Japanese place owned by Koreans. Mid ramen.",
+    "address": "46-17 Queens Blvd",
+    "osmBuildingId": "w280363108",
+    "footprint": [
+      [
+        -73.9178038,
+        40.743462
+      ],
+      [
+        -73.9180974,
+        40.7434971
+      ],
+      [
+        -73.9181223,
+        40.7433729
+      ],
+      [
+        -73.917837,
+        40.7433396
+      ],
+      [
+        -73.9178204,
+        40.7433531
+      ]
+    ],
+    "height": 4.9,
+    "storefront": [
+      -73.9179257,
+      40.7434526
     ],
     "facadeEdge": 2
   },
@@ -236,6 +308,42 @@
     "facadeEdge": 2
   },
   {
+    "id": "pelicana-chicken",
+    "name": "Pelicana Chicken",
+    "category": "restaurant",
+    "description": "Juicy Korean fried chicken with all the soju in the world",
+    "address": "47-08 Greenpoint Avenue",
+    "osmBuildingId": "w280354455",
+    "footprint": [
+      [
+        -73.9175102,
+        40.7423688
+      ],
+      [
+        -73.9175422,
+        40.7425129
+      ],
+      [
+        -73.9176109,
+        40.7424913
+      ],
+      [
+        -73.9175789,
+        40.7423463
+      ],
+      [
+        -73.9175067,
+        40.7423562
+      ]
+    ],
+    "height": 7.7,
+    "storefront": [
+      -73.9175743,
+      40.7424099
+    ],
+    "facadeEdge": 2
+  },
+  {
     "id": "prung-asian-cuisine",
     "name": "Prung",
     "category": "restaurant",
@@ -318,6 +426,39 @@
       },
       "posts": "#2f6b45"
     }
+  },
+  {
+    "id": "sotto-le-stelle",
+    "name": "Sotto Le Stelle",
+    "category": "restaurant",
+    "description": "Italian restaurant that I'd actually spend my money on. The panna cotta changed my life, and the staff gave us free tiramisu.",
+    "address": "44-07 Queens Boulevard",
+    "visited": "2026-02-25",
+    "osmBuildingId": "w280365514",
+    "footprint": [
+      [
+        -73.9200686,
+        40.7437538
+      ],
+      [
+        -73.9201349,
+        40.7437619
+      ],
+      [
+        -73.9201657,
+        40.743616
+      ],
+      [
+        -73.9200994,
+        40.7436079
+      ]
+    ],
+    "height": 10.9,
+    "storefront": [
+      -73.9201239,
+      40.7436409
+    ],
+    "facadeEdge": 2
   },
   {
     "id": "souk-al-shater",
