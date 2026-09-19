@@ -4,6 +4,8 @@ import { awningSpan, nearestEdge, separateSpans } from '../facade.ts';
 import { distToRing, pointInRing, ringCentroid, type Pt } from '../geo.ts';
 import { placeColor, type Place } from '../places.ts';
 import { buildLot, pickupSpot, type Lot, type LotEnv } from './lot.ts';
+import { buildStorefront, facadeWallTexture, wallT, type FacadeFront } from './storefront.ts';
+import { geometry, pushQuad, UNIT } from './quads.ts';
 import { buildStrips } from './strips.ts';
 
 const BAY = 3.0; // meters per window column
@@ -203,31 +205,7 @@ function drawPictogram(ctx: CanvasRenderingContext2D, category: Category, cx: nu
   }
 }
 
-const UNIT = [
-  [0, 0],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-];
-
 const hash = (s: string) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
-
-/** A quad from four corners, pushed as two triangles with a shared normal and UVs. */
-function pushQuad(pos: number[], nrm: number[], uv: number[], c: THREE.Vector3[], n: THREE.Vector3, uvs: number[][]) {
-  for (const k of [0, 1, 2, 0, 2, 3]) {
-    pos.push(c[k].x, c[k].y, c[k].z);
-    nrm.push(n.x, n.y, n.z);
-    uv.push(uvs[k][0], uvs[k][1]);
-  }
-}
-
-function geometry(pos: number[], nrm: number[], uv: number[]) {
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  return g;
-}
 
 /** Outward-facing wall quads for a counter-clockwise ring, with window UVs. Exported for tests. */
 export function wallGeometry(ring: Pt[], height: number, floorCount?: number): THREE.BufferGeometry {
@@ -301,7 +279,16 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     g.userData.key = key;
 
     const brand = placeColor(first);
-    const wallMat = new THREE.MeshLambertMaterial({ map: fastFood ? fastFoodTexture(brand) : windowTexture(WALL_COLORS[hash(key) % WALL_COLORS.length]) });
+    // A custom storefront (modeled on the real building) sets the wall finish for the whole building.
+    const facade = group.find((p) => p.facade)?.facade;
+    const wallTex = fastFood
+      ? fastFoodTexture(brand)
+      : facade?.wall
+        ? facadeWallTexture(facade.wall, facade.finish ?? 'smooth')
+        : windowTexture(WALL_COLORS[hash(key) % WALL_COLORS.length]);
+    // Pale custom finishes get a little self-light so they stay pale on the shaded side.
+    const baseEmissive = facade?.wall ? '#3a3a38' : '#000000';
+    const wallMat = new THREE.MeshLambertMaterial({ map: wallTex, emissive: baseEmissive });
     g.add(new THREE.Mesh(wallGeometry(ring, h, fastFood ? 1 : undefined), wallMat));
 
     const shape = new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x, y)));
@@ -353,7 +340,22 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     for (const edge of new Set(fronts.map((f) => f.edge))) separateSpans(fronts.filter((f) => f.edge === edge).map((f) => f.span));
 
     const storefronts: Storefront[] = [];
+    const facadeFronts: FacadeFront[] = [];
+    const signSpots: Pt[] = [];
     for (const { p, edge, span } of fronts) {
+      if (p.facade) {
+        // Custom storefronts draw their own glass, panels and signs instead of an awning.
+        const sf = proj.toLocal(p.storefront[0], p.storefront[1]);
+        facadeFronts.push({ facade: p.facade, edge, t: wallT(ring, edge, sf), storefront: sf });
+        const a = ring[edge];
+        const b = ring[(edge + 1) % ring.length];
+        const t = (span.t0 + span.t1) / 2;
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const front = new THREE.Vector3(a[0] + (b[0] - a[0]) * t + ((b[1] - a[1]) / len) * 0.5, a[1] + (b[1] - a[1]) * t - ((b[0] - a[0]) / len) * 0.5, 2);
+        storefronts.push({ place: p, point: front });
+        signSpots.push([front.x, front.y]);
+        continue;
+      }
       const top = Math.min(3.4, h - 0.9);
       const drop = fastFood ? 0.35 : 0.7;
       const depth = fastFood ? 1.2 : 1.4;
@@ -373,6 +375,8 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
       }
       storefronts.push({ place: p, point: at((span.t0 + span.t1) / 2, depth / 2, top - drop / 2) });
     }
+
+    if (facade) buildStorefront(g, ring, h, facade, facadeFronts, env.roads);
 
     // Lot extras: parking, drive-thru lane, pole sign, menu board, and the pickup window.
     const lots = group.map((p) => buildLot(p, env)).filter((l): l is Lot => !!l);
@@ -409,10 +413,14 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
       centroid: ringCentroid(ring),
       group: g,
       storefronts,
-      blocksTree: lots.length ? (x, y) => lots.some((l) => l.blocksTree(x, y)) : undefined,
+      // Keep lots clear, and keep trees from hiding a custom storefront's sign.
+      blocksTree:
+        lots.length || facadeFronts.length
+          ? (x, y) => lots.some((l) => l.blocksTree(x, y)) || signSpots.some(([sx, sy]) => Math.hypot(x - sx, y - sy) < 6)
+          : undefined,
       setHighlight(on) {
         outline.visible = on;
-        wallMat.emissive.set(on ? '#2a2a14' : '#000000');
+        wallMat.emissive.set(on ? '#4a4a24' : baseEmissive);
       },
     };
     buildings.push(building);

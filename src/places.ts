@@ -31,6 +31,29 @@ export interface Place {
   style?: PlaceStyle;
   /** Things around the building, all [lon, lat]. */
   lot?: PlaceLot;
+  /** A custom storefront modeled on the real one; replaces the default windows and awning. */
+  facade?: PlaceFacade;
+}
+
+export interface PlaceFacade {
+  /** Wall color above the shop fronts. */
+  wall?: string;
+  /** Smooth panels or stone blocks (default smooth). */
+  finish?: 'smooth' | 'stone';
+  /** Full-height shop windows along every street-facing wall, up to this height in meters. */
+  shopGlass?: number;
+  /** Continuous canopy color above the shop windows on street-facing walls. */
+  canopy?: string;
+  /** Molding band color just under the roofline. */
+  cornice?: string;
+  /** Panel across this shop's front, optionally lettered; width and height in meters. */
+  band?: { color: string; text?: string; textColor?: string; width?: number; height?: number; pattern?: 'tile' };
+  /** Big plain lettering on the storefront wall, above the band. */
+  letters?: { text: string; color: string };
+  /** Posts (door frames) at both ends of this shop's front. */
+  posts?: string;
+  /** Signs on both sides of the street corner nearest the storefront, e.g. OPEN / 24 / HOURS. */
+  corner?: { lines: string[]; color: string; bg: string };
 }
 
 export const PLACE_STYLES = ['fast-food'] as const;
@@ -107,6 +130,21 @@ export function validatePlaces(input: unknown): string[] {
       err('facadeEdge must be a wall index');
     if (p.style !== undefined && !PLACE_STYLES.includes(p.style)) err(`style must be one of ${PLACE_STYLES.join(', ')}`);
     if (p.color !== undefined && (typeof p.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(p.color))) err('color must look like "#2f8a4f"');
+    if (p.facade !== undefined) {
+      const f = p.facade as PlaceFacade;
+      const hex = (c: unknown) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+      const okColor = (c: unknown) => c === undefined || hex(c);
+      if (typeof f !== 'object' || f === null) err('facade must be an object');
+      else {
+        if (![f.wall, f.canopy, f.cornice, f.posts].every(okColor)) err('facade colors must look like "#2f8a4f"');
+        if (f.finish !== undefined && f.finish !== 'smooth' && f.finish !== 'stone') err('facade.finish must be smooth or stone');
+        if (f.shopGlass !== undefined && !(typeof f.shopGlass === 'number' && f.shopGlass > 1 && f.shopGlass < (p.height ?? 0))) err('facade.shopGlass must be a height below the roof');
+        if (f.band !== undefined && !(hex(f.band.color) && okColor(f.band.textColor))) err('facade.band needs a color like "#c62a45"');
+        if (f.letters !== undefined && !(typeof f.letters.text === 'string' && f.letters.text.trim() && hex(f.letters.color))) err('facade.letters needs text and a color');
+        if (f.corner !== undefined && !(Array.isArray(f.corner.lines) && f.corner.lines.length && hex(f.corner.color) && hex(f.corner.bg)))
+          err('facade.corner needs lines, color and bg');
+      }
+    }
     if (p.lot !== undefined) {
       const lot = p.lot as PlaceLot;
       const rings = (r: unknown) => r === undefined || (Array.isArray(r) && r.every((ring) => Array.isArray(ring) && ring.length >= 3 && ring.every(isLonLat)));

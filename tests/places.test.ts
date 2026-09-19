@@ -94,3 +94,23 @@ describe('place color', () => {
     expect(validatePlaces([p]).join()).toContain('color');
   });
 });
+
+describe('validatePlaces: facade', () => {
+  it('accepts a full facade and rejects bad colors or a too-tall shop window', () => {
+    const p = structuredClone(fixtures[0]);
+    p.facade = {
+      wall: '#e3e4e1',
+      finish: 'smooth',
+      shopGlass: 3.6,
+      canopy: '#8b9096',
+      band: { color: '#c62a45', text: 'MARKETPLACE', textColor: '#ffffff' },
+      letters: { text: 'FRESH', color: '#2f9e44' },
+      corner: { lines: ['OPEN', '24', 'HOURS'], color: '#ffffff', bg: '#16181b' },
+    };
+    expect(validatePlaces([p])).toEqual([]);
+    p.facade = { wall: 'white', shopGlass: 99 };
+    const errs = validatePlaces([p]).join('\n');
+    expect(errs).toContain('colors');
+    expect(errs).toContain('shopGlass');
+  });
+});
