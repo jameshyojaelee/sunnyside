@@ -400,7 +400,7 @@ body {
   font-weight: 800;
   font-size: 13px;
 }
-.build-panel input:not([type='file']),
+.build-panel input:not([type='file']):not([type='checkbox']),
 .build-panel select,
 .build-panel textarea,
 .build-panel .search {
@@ -417,6 +417,11 @@ body {
 }
 .build-panel textarea {
   resize: vertical;
+}
+.build-panel label.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .build-panel .row {
   display: flex;

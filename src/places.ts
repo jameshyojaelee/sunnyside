@@ -15,8 +15,10 @@ export interface Place {
   link?: string;
   /** Paths under public/, e.g. "photos/<id>/1.jpg". */
   photos?: string[];
-  /** OSM building id, e.g. "w280365517". Places sharing a building share one mesh. */
+  /** OSM building id, e.g. "w280365517". Places sharing a building (and unit) share one mesh. */
   osmBuildingId: string;
+  /** Set when this place is its own slice of a big multi-shop building (footprint is the slice). */
+  unit?: string;
   /** Outer ring as [lon, lat], counter-clockwise, no repeated closing point. */
   footprint: Array<[number, number]>;
   /** Meters. */
@@ -118,6 +120,7 @@ export function validatePlaces(input: unknown): string[] {
     if (p.photos !== undefined && (!Array.isArray(p.photos) || p.photos.some((ph) => typeof ph !== 'string' || !PHOTO.test(ph))))
       err('photos must be paths like "photos/<id>/1.jpg"');
     if (typeof p.osmBuildingId !== 'string' || !/^[wr]\d+$/.test(p.osmBuildingId)) err('osmBuildingId must look like "w123"');
+    if (p.unit !== undefined && (typeof p.unit !== 'string' || !SLUG.test(p.unit))) err('unit must be a slug like "moge-tee"');
     if (typeof p.height !== 'number' || !(p.height >= 2 && p.height <= 200)) err('height must be 2-200 meters');
     if (!Array.isArray(p.footprint) || p.footprint.length < 3 || !p.footprint.every(isLonLat)) {
       err('footprint must be 3+ [lon, lat] points near Sunnyside');

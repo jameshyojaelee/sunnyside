@@ -265,8 +265,12 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
   const { proj, shadowMaterial, sunOffset } = env;
   const root = new THREE.Group();
   root.name = 'places';
+  // One mesh per building, or per slice when a big building is split into shop units.
   const byBuilding = new Map<string, Place[]>();
-  for (const p of places) (byBuilding.get(p.osmBuildingId) ?? byBuilding.set(p.osmBuildingId, []).get(p.osmBuildingId)!).push(p);
+  for (const p of places) {
+    const key = p.unit ? `${p.osmBuildingId}#${p.unit}` : p.osmBuildingId;
+    (byBuilding.get(key) ?? byBuilding.set(key, []).get(key)!).push(p);
+  }
 
   const buildings: PlaceBuilding[] = [];
   for (const [key, group] of byBuilding) {

@@ -10,6 +10,7 @@ import type { DevBuilding, DevPoi, MapData } from '../mapdata.ts';
 import type { Place } from '../places.ts';
 import type { PlacesController } from '../placesController.ts';
 import { wallGeometry } from '../render/buildings.ts';
+import { carveUnit, shopsInside, unitSpan } from '../units.ts';
 import { buildStrips } from '../render/strips.ts';
 import { ICONS, roundButton } from '../ui/icons.ts';
 
@@ -34,6 +35,10 @@ interface Selection {
   osmBuildingId: string;
   height: number;
   editing?: Place;
+  /** Set when this shop is a slice of a big multi-shop building. */
+  unit?: string;
+  /** The whole OSM building, offered instead of the slice. */
+  whole?: { ring: Pt[]; storefront: Pt; facadeEdge: number; shops: number };
   photos: string[];
   newPhotos: File[];
 }
@@ -216,6 +221,8 @@ export async function setupBuildMode(ctx: Ctx) {
         <label>Address <input name="address" /></label>
         <label>First visited <input name="visited" type="date" /></label>
         <label>Link <input name="link" type="url" placeholder="https://" /></label>
+        ${s.whole ? `<p class="hint">This building holds ${s.whole.shops} shops, so this place gets just its own slice (outlined).</p>
+        <label class="check"><input name="whole" type="checkbox" /> Use the whole building</label>` : ''}
         <label>Photos (up to ${MAX_PHOTOS}) <input name="photos" type="file" accept="image/*" multiple /></label>
         <div class="thumbs"></div>
         <p class="error" role="alert"></p>
@@ -234,6 +241,18 @@ export async function setupBuildMode(ctx: Ctx) {
     field('visited').value = p?.visited ?? '';
     field('link').value = p?.link ?? '';
     if (!p && pendingName) field('name').value = pendingName;
+    if (s.whole) {
+      const slice = { ring: s.ring, storefront: s.storefront, facadeEdge: s.facadeEdge, unit: s.unit };
+      field('whole').addEventListener('change', (ev) => {
+        const on = (ev.target as HTMLInputElement).checked;
+        const pick = on ? { ...s.whole!, unit: undefined } : slice;
+        s.ring = pick.ring;
+        s.storefront = pick.storefront;
+        s.facadeEdge = pick.facadeEdge;
+        s.unit = pick.unit;
+        drawGhost();
+      });
+    }
 
     drawGhost();
 
@@ -319,6 +338,8 @@ export async function setupBuildMode(ctx: Ctx) {
           link: opt(field('link').value),
           photos: photos.length ? photos : undefined,
           osmBuildingId: s.osmBuildingId,
+          // A slice is named after the place that first took it.
+          unit: s.unit === 'new' ? id : s.unit,
           footprint: s.ring.map(([x, y]) => proj.toLonLat(x, y).map(round7) as [number, number]),
           height: s.height,
           storefront: proj.toLonLat(...s.storefront).map(round7) as [number, number],
@@ -424,6 +445,33 @@ export async function setupBuildMode(ctx: Ctx) {
 
   let pendingName: string | undefined;
 
+  /**
+   * Big buildings hold a row of shops (3+ OSM shop points inside). Then the new place gets only
+   * its own slice: the front runs halfway to the neighboring shops on the same wall.
+   */
+  function sliceIfCrowded(s: Selection, address?: string, poiName?: string) {
+    const shops = shopsInside(s.ring, pois);
+    if (shops.length < 3) return;
+    const click = s.storefront;
+    // The shop's own OSM point (picked from search, or right where we clicked) isn't a neighbor.
+    const own = pois.find((p) => p.n === poiName && pointInRing(p.x, p.y, s.ring));
+    const at: Pt = own ? [own.x, own.y] : (shops.find((q) => Math.hypot(q[0] - click[0], q[1] - click[1]) < 2) ?? click);
+    // Places we already saved here count as neighbors too (unitSpan skips the point at `at`).
+    const saved = controller.places.filter((p) => p.osmBuildingId === s.osmBuildingId && p.id !== s.editing?.id).map((p) => proj.toLocal(...p.storefront));
+    const { s0, s1 } = unitSpan(s.ring, s.facadeEdge, at, [...shops, ...saved]);
+    let ring: Pt[];
+    try {
+      ring = carveUnit(s.ring, s.facadeEdge, s0, s1);
+    } catch {
+      return;
+    }
+    s.whole = { ring: s.ring, storefront: s.storefront, facadeEdge: s.facadeEdge, shops: shops.length };
+    s.ring = ring;
+    s.storefront = snapInto(ring, at);
+    s.facadeEdge = chooseFacadeEdge(ring, s.storefront, namedRoads, address);
+    s.unit = 'new';
+  }
+
   function selectBuilding(i: number, click: Pt, poiName?: string) {
     const b = buildings[i];
     const ring = prepareFootprint(b.ring);
@@ -439,6 +487,7 @@ export async function setupBuildMode(ctx: Ctx) {
       photos: [],
       newPhotos: [],
     };
+    sliceIfCrowded(sel, address, poiName);
     pendingName = poiName;
     showForm();
     if (address) (panel.querySelector('[name="address"]') as HTMLInputElement).value = address;
@@ -446,7 +495,9 @@ export async function setupBuildMode(ctx: Ctx) {
 
   /** A new place in a building that already has places: same outline, height and look. */
   function addToBuilding(existing: Place, click: Pt) {
-    const ring = existing.footprint.map(([lon, lat]) => proj.toLocal(lon, lat));
+    // A slice of a big building: the new shop gets its own slice of the whole building.
+    const full = existing.unit ? buildings.find((b) => b.id === existing.osmBuildingId) : undefined;
+    const ring = full ? prepareFootprint(full.ring) : existing.footprint.map(([lon, lat]) => proj.toLocal(lon, lat));
     const storefront = snapInto(ring, click);
     sel = {
       ring,
@@ -458,6 +509,7 @@ export async function setupBuildMode(ctx: Ctx) {
       photos: [],
       newPhotos: [],
     };
+    if (full) sliceIfCrowded(sel, existing.address);
     pendingName = undefined;
     showForm();
     if (existing.address) (panel.querySelector('[name="address"]') as HTMLInputElement).value = existing.address;
@@ -507,6 +559,7 @@ export async function setupBuildMode(ctx: Ctx) {
       osmBuildingId: p.osmBuildingId,
       height: p.height,
       editing: p,
+      unit: p.unit,
       photos: [...(p.photos ?? [])],
       newPhotos: [],
     };
