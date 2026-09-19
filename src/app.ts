@@ -11,6 +11,7 @@ import { buildViaduct } from './render/viaduct.ts';
 THREE.ColorManagement.enabled = false;
 
 const MAX_SCALE = 12; // px per meter at closest zoom
+const ROTATE_STEP = Math.PI / 4;
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 interface Anim {
@@ -116,9 +117,10 @@ export class MapApp {
     this.requestRender();
   }
 
+  /** Turn the view by one step (45 deg; eight views all the way around). */
   rotate(dir: 1 | -1) {
     const base = this.anim?.to ?? this.view;
-    this.animateTo({ azimuth: base.azimuth + (dir * Math.PI) / 2 }, 450);
+    this.animateTo({ azimuth: base.azimuth + dir * ROTATE_STEP }, 350);
   }
 
   /** Zoom by a factor keeping the ground point under (sx, sy) fixed. */
