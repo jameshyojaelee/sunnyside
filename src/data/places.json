@@ -73,37 +73,70 @@
     "facadeEdge": 4
   },
   {
-    "id": "curleys-bagels",
+    "id": "curleys-bagels-2",
     "name": "Curley's Bagels",
-    "category": "bakery",
-    "description": "Best bagels in town. try the Lox Royale.",
-    "address": "43-04 47th",
+    "category": "restaurant",
+    "description": "Best Bagel in town. Try the Lox Royale",
     "osmBuildingId": "w280348773",
+    "unit": "curleys-bagels-2",
     "footprint": [
       [
-        -73.9217193,
-        40.7412104
+        -73.9217705,
+        40.7412923
       ],
       [
-        -73.9216374,
-        40.7412008
+        -73.9215948,
+        40.7412724
       ],
       [
-        -73.9216104,
-        40.7413344
+        -73.9215859,
+        40.7413178
       ],
       [
-        -73.9216923,
-        40.7413439
+        -73.9217616,
+        40.7413377
       ]
     ],
     "height": 5.8,
     "storefront": [
-      -73.9216538,
-      40.7413269
+      -73.9217569,
+      40.7413226
     ],
-    "facadeEdge": 2,
-    "unit": "curleys-bagels"
+    "facadeEdge": 3,
+    "address": "43-04 47th"
+  },
+  {
+    "id": "flowers-by-giorgie",
+    "name": "Flowers by Giorgie",
+    "category": "shop",
+    "description": "Flower shop with friendly staff",
+    "address": "45-17 Greenpoint Av",
+    "osmBuildingId": "w280354487",
+    "unit": "flowers-by-giorgie",
+    "footprint": [
+      [
+        -73.9192931,
+        40.7423103
+      ],
+      [
+        -73.9192261,
+        40.7421852
+      ],
+      [
+        -73.9191822,
+        40.7421988
+      ],
+      [
+        -73.9192493,
+        40.7423239
+      ]
+    ],
+    "height": 6.4,
+    "storefront": [
+      -73.9192409,
+      40.7422416
+    ],
+    "facadeEdge": 0
   },
   {
     "id": "fuyu-ramen-and-sake",
