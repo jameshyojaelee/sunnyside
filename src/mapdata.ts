@@ -18,8 +18,12 @@ export interface MapData {
   areas: Array<{ k: AreaKind; r: number[][] }>;
   /** Railway tracks at ground level. */
   rails: number[][];
-  /** Elevated subway structure centerlines (7 train, N/W). */
+  /** Elevated subway tracks (7 train), whole, for the trains. */
   viaduct: number[][];
+  /** The same tracks split by structure: concrete arches over Queens Blvd (33rd-48th St) or steel. */
+  viaductParts: Array<{ k: 'concrete' | 'steel'; p: number[] }>;
+  /** The concrete viaduct as one structure: a centerline plus its width left and right of it. */
+  aqueduct: Array<{ p: number[]; wl: number; wr: number }>;
   /** Trees, flat: x, y, height (m), type (0,1 = round; 2,3 = conifer). */
   trees: number[];
 }

@@ -9,6 +9,7 @@ import { PlacesController } from './placesController.ts';
 import { buildArch } from './render/arch.ts';
 import { buildTrains } from './render/trains.ts';
 import { PlaceCard } from './ui/card.ts';
+import { AboutPanel, closeSidePanels, PlacesList } from './ui/panels.ts';
 import { ICONS, roundButton } from './ui/icons.ts';
 
 const LOADING_LINES = ['Painting crosswalks…', 'Planting street trees…', 'Waiting for the 7 train…', 'Mowing Sunnyside Gardens…'];
@@ -85,8 +86,15 @@ async function start() {
   const trains = buildTrains(data.viaduct, reducedMotion);
   app.scene.add(trains.group);
   if (!reducedMotion) app.addTicker(trains.update);
+  const list = new PlacesList(ui, (id) => controller.selectPlace(id));
+  const about = new AboutPanel(ui);
+  left.append(
+    roundButton(ICONS.places, 'Our places', () => list.toggle()),
+    roundButton(ICONS.info, 'About this map', () => about.toggle()),
+  );
   controller.onChange = (places) => {
     document.getElementById('place-count')!.textContent = `${places.length} ${places.length === 1 ? 'place' : 'places'} so far`;
+    list.setPlaces(places);
   };
   controller.setPlaces(usable(await loadPlaces()));
 
@@ -94,7 +102,10 @@ async function start() {
     onTap: (x, y) => controller.tap(x, y),
     onHover: (x, y) => controller.hover(x, y),
     onLeave: () => controller.clearHover(),
-    onEscape: () => controller.deselect(),
+    onEscape: () => {
+      closeSidePanels();
+      controller.deselect();
+    },
   };
   let input = browse;
   attachInput(app, app.renderer.domElement, {

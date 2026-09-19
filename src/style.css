@@ -518,3 +518,89 @@ body {
 .card-photos a:only-child {
   grid-column: span 2;
 }
+
+/* ---- Places list and About ---------------------------------------------------------------- */
+.side-panel {
+  position: absolute;
+  top: calc(max(12px, env(safe-area-inset-top)) + 60px);
+  left: var(--gutter);
+  width: min(320px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100% - 200px);
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  overscroll-behavior: contain;
+}
+.side-panel[hidden] {
+  display: none;
+}
+.side-panel h2 {
+  margin: 0 40px 8px 0;
+  font-size: 20px;
+  font-weight: 900;
+}
+.side-panel h3 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--panel-muted);
+}
+.side-panel h3[style] {
+  border-left: 4px solid var(--cat);
+  padding-left: 7px;
+}
+.panel-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.side-panel .hint {
+  color: var(--panel-muted);
+  font-weight: 700;
+}
+.place-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.place-list button {
+  width: 100%;
+  text-align: left;
+  background: rgba(10, 20, 70, 0.35);
+  border: 1px solid rgba(157, 178, 236, 0.35);
+  border-radius: 8px;
+  color: var(--panel-text);
+  font: inherit;
+  font-weight: 800;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+.place-list button:hover,
+.place-list button:focus-visible {
+  background: rgba(63, 95, 212, 0.55);
+  outline: none;
+}
+.place-list small {
+  display: block;
+  font-weight: 600;
+  color: var(--panel-muted);
+}
+.about p,
+.about li {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.about ul {
+  padding-left: 18px;
+  margin: 0;
+}
+.about .small {
+  font-size: 12px;
+  color: var(--panel-muted);
+}
+.about a {
+  color: #ffe066;
+}

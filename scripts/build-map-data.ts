@@ -18,8 +18,10 @@ import {
   signedArea,
   simplifyLine,
   simplifyRing,
+  sliceLine,
   stitchLines,
   stitchRings,
+  streetMeetsLine,
   type Pt,
 } from '../src/geo.ts';
 import type { AreaKind, DevBuilding, DevPoi, MapData } from '../src/mapdata.ts';
@@ -188,6 +190,57 @@ async function main() {
 
   // Elevated tracks: join OSM pieces into whole tracks (trains run along them), then trim at the edge.
   for (const chain of stitchLines(viaductPieces)) viaduct.push(...clipNearBoundary(flat(chain), 40));
+
+  // The 7 train runs on an arched concrete viaduct above Queens Boulevard from 33rd to 48th
+  // Street and on steel elsewhere (Wikipedia, "IRT Flushing Line"). OSM does not tag the material,
+  // so each track is cut where it crosses those two streets.
+  const viaductParts: MapData['viaductParts'] = [];
+  const streetLines = (name: string) => roads.filter((r) => r.l === 0 && r.n === name).map((r) => toPts(r.p));
+  const s33 = streetLines('33rd Street');
+  const s48 = streetLines('48th Street');
+  const concreteTracks: Pt[][] = [];
+  for (const v of viaduct) {
+    const pts = toPts(v);
+    const len = lineLength(pts);
+    // Streets end at the Queens Blvd service roads, about 15-20 m short of the tracks.
+    const at33 = streetMeetsLine(pts, s33, 30);
+    const at48 = streetMeetsLine(pts, s48, 30);
+    const meanX = (a: number, b: number) => {
+      const piece = sliceLine(pts, a, b);
+      return piece.reduce((sum, p) => sum + p[0], 0) / piece.length;
+    };
+    let lo: number | undefined;
+    let hi: number | undefined;
+    if (at33 !== undefined && at48 !== undefined) [lo, hi] = [Math.min(at33, at48), Math.max(at33, at48)];
+    else if (at48 !== undefined) [lo, hi] = meanX(0, at48) < meanX(at48, len) ? [0, at48] : [at48, len]; // concrete is west of 48th
+    else if (at33 !== undefined) [lo, hi] = meanX(0, at33) > meanX(at33, len) ? [0, at33] : [at33, len]; // concrete is east of 33rd
+    const push = (k: 'concrete' | 'steel', a: number, b: number) => {
+      if (b - a < 1) return;
+      const piece = sliceLine(pts, a, b);
+      viaductParts.push({ k, p: flat(piece) });
+      if (k === 'concrete') concreteTracks.push(piece);
+    };
+    if (lo === undefined || hi === undefined) push('steel', 0, len);
+    else {
+      push('steel', 0, lo);
+      push('concrete', lo, hi);
+      push('steel', hi, len);
+    }
+  }
+  // One arched structure carries all concrete tracks: centered on the middle track, as wide as the
+  // outermost tracks plus the deck half-width.
+  const aqueduct: MapData['aqueduct'] = [];
+  if (concreteTracks.length) {
+    const ref = concreteTracks.slice().sort((a, b) => lineLength(b) - lineLength(a))[0];
+    const [ax, ay] = ref[0];
+    const [bx, by] = ref[ref.length - 1];
+    const ul = Math.hypot(bx - ax, by - ay);
+    const side = (t: Pt[]) => t.reduce((s, p) => s + (-(p[0] - ax) * (by - ay) + (p[1] - ay) * (bx - ax)) / ul, 0) / t.length;
+    const ordered = concreteTracks.slice().sort((a, b) => side(a) - side(b));
+    const center = ordered[Math.floor(ordered.length / 2)];
+    const offsets = ordered.map((t) => side(t) - side(center));
+    aqueduct.push({ p: flat(center), wl: round1(Math.max(0, ...offsets) + 3.2), wr: round1(Math.max(0, ...offsets.map((o) => -o)) + 3.2) });
+  }
 
   // ---- Spatial index of obstacles (roads, rails, viaduct) for tree placement ---------------------
   const CELL = 40;
@@ -364,6 +417,8 @@ async function main() {
     areas: areas.map((a) => ({ k: a.k, r: a.r.map(flat) })),
     rails,
     viaduct,
+    viaductParts,
+    aqueduct,
     trees,
   };
 
@@ -426,6 +481,7 @@ async function main() {
       `origin ${origin.lon}, ${origin.lat}; core ${(core.maxX - core.minX).toFixed(0)} x ${(core.maxY - core.minY).toFixed(0)} m; grid angle ${gridAngle} deg`,
       `roads ${roads.length} (bridges ${roads.filter((r) => r.l > 0).length}), areas ${areas.length}, rails ${rails.length}`,
       `elevated tracks ${viaduct.length}: ${viaduct.map((v) => Math.round(lineLength(toPts(v)))).sort((a, b) => b - a).join(', ')} m`,
+      `  concrete parts: ${viaductParts.filter((v) => v.k === 'concrete').map((v) => Math.round(lineLength(toPts(v.p)))).join(', ')} m; aqueduct width ${aqueduct.map((a) => `${a.wl}+${a.wr}`).join(', ')} m`,
       `trees ${trees.length / 4} (street ${streetCount}, ${pushed} nudged off asphalt; scatter ${scatterCount})`,
       `public/data/sunnyside.json ${(json.length / 1024).toFixed(0)} KB`,
       `dev-data: ${buildings.length} buildings, ${pois.length} named places`,

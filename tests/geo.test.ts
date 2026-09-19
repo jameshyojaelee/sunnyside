@@ -207,3 +207,51 @@ describe('regionNorthOf', () => {
     expect(pointInRing(-40, 14, r)).toBe(false);
   });
 });
+
+describe('lineCrossings and sliceLine', () => {
+  it('finds where a track crosses a street and cuts it there', async () => {
+    const { lineCrossings, sliceLine, lineLength } = await import('../src/geo.ts');
+    const track: Pt[] = [
+      [0, 0],
+      [100, 0],
+      [200, 10],
+    ];
+    const street: Pt[] = [
+      [50, -20],
+      [50, 20],
+    ];
+    const street2: Pt[] = [
+      [150, -20],
+      [150, 30],
+    ];
+    const [a] = lineCrossings(track, street);
+    const [b] = lineCrossings(track, street2);
+    expect(a).toBeCloseTo(50, 6);
+    expect(b).toBeCloseTo(100 + Math.hypot(50, 5), 6);
+    const mid = sliceLine(track, a, b);
+    expect(mid[0]).toEqual([50, 0]);
+    expect(mid[1]).toEqual([100, 0]);
+    expect(mid[2][0]).toBeCloseTo(150, 6);
+    expect(lineLength(mid)).toBeCloseTo(b - a, 6);
+  });
+});
+
+describe('streetMeetsLine', () => {
+  it('bridges a street that stops on both sides of a wide avenue', async () => {
+    const { streetMeetsLine } = await import('../src/geo.ts');
+    const track: Pt[] = [
+      [0, 0],
+      [200, 0],
+    ];
+    const north: Pt[] = [
+      [101, 80],
+      [101, 15],
+    ];
+    const south: Pt[] = [
+      [99, -14],
+      [99, -80],
+    ];
+    expect(streetMeetsLine(track, [north, south], 25)).toBeCloseTo(100, 6);
+    expect(streetMeetsLine(track, [north, south], 10)).toBeUndefined();
+  });
+});

@@ -277,3 +277,79 @@ export function regionNorthOf(lines: Pt[][], pad: number, x0: number, x1: number
   ring.push([x1, top], [x0, top]);
   return ring;
 }
+
+/** Arc-length positions along `line` where it crosses `other` (both open polylines). */
+export function lineCrossings(line: Pt[], other: Pt[]): number[] {
+  const out: number[] = [];
+  let s = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    for (let j = 1; j < other.length; j++) {
+      const [cx, cy] = other[j - 1];
+      const [dx, dy] = other[j];
+      const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+      if (Math.abs(den) < 1e-12) continue;
+      const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+      const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+      if (t >= 0 && t <= 1 && u >= 0 && u <= 1) out.push(s + t * len);
+    }
+    s += len;
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** The piece of a polyline between arc lengths s0 and s1. */
+export function sliceLine(line: Pt[], s0: number, s1: number): Pt[] {
+  const out: Pt[] = [];
+  let s = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    const at = (d: number): Pt => [ax + ((bx - ax) * (d - s)) / (len || 1), ay + ((by - ay) * (d - s)) / (len || 1)];
+    if (s + len >= s0 && s <= s1) {
+      if (!out.length) out.push(at(Math.max(s0, s)));
+      if (s + len <= s1) out.push([bx, by]);
+      else {
+        out.push(at(s1));
+        break;
+      }
+    }
+    s += len;
+  }
+  return out;
+}
+
+/** Arc length along `line` of the point nearest to p, and the distance to it. */
+export function nearestOnLine(line: Pt[], p: Pt): { s: number; d: number } {
+  let best = { s: 0, d: Infinity };
+  let s = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    const t = projectOnSegment(p[0], p[1], ax, ay, bx, by);
+    const d = Math.hypot(p[0] - (ax + (bx - ax) * t), p[1] - (ay + (by - ay) * t));
+    if (d < best.d) best = { s: s + t * len, d };
+    s += len;
+  }
+  return best;
+}
+
+/**
+ * Where a street meets a track: a true crossing if the lines intersect, otherwise the average
+ * projection of street ends that stop within `gap` meters of it (streets often end at a wide avenue).
+ */
+export function streetMeetsLine(line: Pt[], streets: Pt[][], gap: number): number | undefined {
+  const crossings = streets.flatMap((st) => lineCrossings(line, st));
+  if (crossings.length) return crossings[0];
+  const hits: number[] = [];
+  for (const st of streets)
+    for (const end of [st[0], st[st.length - 1]]) {
+      const n = nearestOnLine(line, end);
+      if (n.d <= gap) hits.push(n.s);
+    }
+  return hits.length ? hits.reduce((a, b) => a + b, 0) / hits.length : undefined;
+}

@@ -76,7 +76,7 @@ export class MapApp {
     this.lotOrder = ground.lotOrder;
     this.trees = buildTrees(data.trees, this.fade, this.shadowMaterial, this.sunOffset);
     this.scene.add(this.trees.group);
-    this.scene.add(buildViaduct(data.viaduct, this.shadowMaterial, this.sunOffset));
+    this.scene.add(buildViaduct(data, this.shadowMaterial, this.sunOffset));
 
     const c = data.core;
     this.view = { tx: (c.minX + c.maxX) / 2, ty: (c.minY + c.maxY) / 2, scale: 1, azimuth: this.baseAzimuth };
