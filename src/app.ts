@@ -31,6 +31,8 @@ export class MapApp {
   readonly sunLight: THREE.DirectionalLight;
   readonly shadowMaterial = makeShadowMaterial();
   readonly fade: FadeUniforms;
+  /** Ground draw slot for place lots (see buildGround). */
+  readonly lotOrder: number;
   readonly trees: Trees;
   view: ViewState;
   vp: Viewport = { width: 1, height: 1 };
@@ -69,7 +71,9 @@ export class MapApp {
     this.scene.add(this.sunLight);
 
     this.fade = buildFadeUniforms(data);
-    this.scene.add(buildGround(data, this.fade));
+    const ground = buildGround(data, this.fade);
+    this.scene.add(ground.group);
+    this.lotOrder = ground.lotOrder;
     this.trees = buildTrees(data.trees, this.fade, this.shadowMaterial, this.sunOffset);
     this.scene.add(this.trees.group);
     this.scene.add(buildViaduct(data.viaduct, this.shadowMaterial, this.sunOffset));
@@ -192,7 +196,7 @@ export class MapApp {
 
   private frame = (now: number) => {
     this.frameRequested = false;
-    // Ambient animation only (trains, diamonds): 30 fps is plenty and saves battery.
+    // Ambient animation only (trains, hearts): 30 fps is plenty and saves battery.
     if (!this.dirty && !this.anim && now - this.lastRender < 32) {
       if (this.tickers.size) this.schedule();
       return;

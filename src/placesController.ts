@@ -48,7 +48,7 @@ export class PlacesController {
   private raycaster = new THREE.Raycaster();
   private reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private tick = (now: number) => {
-    this.markers?.update(this.reducedMotion ? 0 : now, this.app.view.scale);
+    this.markers?.update(this.reducedMotion ? 0 : now, this.app.view.scale, this.app.view.azimuth);
     this.placeLabel();
   };
 
@@ -81,7 +81,14 @@ export class PlacesController {
     this.hovered = this.selected = null;
 
     this.places = places;
-    const { group, buildings } = buildPlaceBuildings(places, this.proj, this.app.shadowMaterial, this.app.sunOffset);
+    const { group, buildings } = buildPlaceBuildings(places, {
+      proj: this.proj,
+      fade: this.app.fade,
+      lotOrder: this.app.lotOrder,
+      shadowMaterial: this.app.shadowMaterial,
+      sunOffset: this.app.sunOffset,
+      roads: this.app.data.roads.filter((r) => r.l === 0 && r.n),
+    });
     this.buildings = buildings;
     this.group = group;
     this.markers = buildMarkers(buildings);
@@ -158,7 +165,7 @@ export class PlacesController {
     return l ? this.landmarkTarget(l) : null;
   }
 
-  /** What is under a screen point: a diamond first (easy to hit when zoomed out), then buildings and landmarks. */
+  /** What is under a screen point: a heart first (easy to hit when zoomed out), then buildings and landmarks. */
   private pickAt(sx: number, sy: number): Target | null {
     const app = this.app;
     if (this.markers) {

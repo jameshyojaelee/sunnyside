@@ -58,7 +58,7 @@ async function start() {
   const plate = document.createElement('div');
   plate.className = 'panel title-plate';
   plate.innerHTML = `<div class="name">Sunnyside</div><div class="sub">Queens, New York</div>
-    <div class="count"><span class="diamond"></span><span id="place-count"></span></div>`;
+    <div class="count"><svg class="heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.4-4.5-9.4-9.1C1.1 8.3 3.3 4.6 6.9 4.6c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.8 3.7 4.3 7.3C19.4 16.5 12 21 12 21z"/></svg><span id="place-count"></span></div>`;
 
   const credit = document.createElement('div');
   credit.className = 'credit';

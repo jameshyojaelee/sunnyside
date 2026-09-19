@@ -69,3 +69,24 @@ describe.each(fixtures.map((p) => [p.id, p] as const))('building %s', (_id, plac
     }
   });
 });
+
+describe('drive-thru pickup window', () => {
+  it('goes on the wall the lane runs alongside, not at a corner where it turns', async () => {
+    const { pickupSpot } = await import('../src/render/lot.ts');
+    // 10 x 20 m building; lane runs down its west side (x = -3) from north to south, then turns east.
+    const ring: Pt[] = [
+      [0, 0],
+      [10, 0],
+      [10, 20],
+      [0, 20],
+    ];
+    const lane: Pt[] = [
+      [-3, 30],
+      [-3, -3],
+      [12, -3],
+    ];
+    const spot = pickupSpot(lane, ring);
+    expect(spot.edge).toBe(3); // west wall: (0,20) -> (0,0)
+    expect(spot.dist).toBeCloseTo(3, 5);
+  });
+});

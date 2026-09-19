@@ -43,6 +43,7 @@ export function slugify(name: string): string {
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
+    .replace(/['’]/g, '')
     .replace(/&/g, ' and ')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -123,7 +124,7 @@ export async function setupBuildMode(ctx: Ctx) {
   function showHome() {
     panel.innerHTML = `
       <h2>Build mode</h2>
-      <p class="hint">Click the building where the shop's front door is, or search for it. Click a green-diamond building to edit it.</p>
+      <p class="hint">Click the building where the shop's front door is, or search for it. Click a building with a heart to edit it.</p>
       <input class="search" type="search" placeholder="Shop name or address, e.g. 46-10 Queens Blvd" aria-label="Search" />
       <div class="results"></div>
       <p class="hint small">Saving writes <code>src/data/places.json</code>. Run <code>npm run publish-places</code> to put changes online.</p>`;
@@ -199,10 +200,7 @@ export async function setupBuildMode(ctx: Ctx) {
         <label>Category <select name="category">${CATEGORY_IDS.map((c) => `<option value="${c}">${CATEGORIES[c].label}</option>`).join('')}</select></label>
         <label>What we think <textarea name="description" rows="6" required placeholder="Our favorite order, why we go, who we go with…"></textarea></label>
         <label>Address <input name="address" /></label>
-        <div class="row">
-          <label>First visited <input name="visited" type="date" /></label>
-          <label>Height (m) <input name="height" type="number" min="2" max="200" step="0.5" /></label>
-        </div>
+        <label>First visited <input name="visited" type="date" /></label>
         <label>Link <input name="link" type="url" placeholder="https://" /></label>
         <div class="row wall">
           <span>Awning wall</span>
@@ -227,7 +225,6 @@ export async function setupBuildMode(ctx: Ctx) {
     field<HTMLTextAreaElement>('description').value = p?.description ?? '';
     field('address').value = p?.address ?? '';
     field('visited').value = p?.visited ?? '';
-    field('height').value = String(s.height);
     field('link').value = p?.link ?? '';
     if (!p && pendingName) field('name').value = pendingName;
 
@@ -255,13 +252,6 @@ export async function setupBuildMode(ctx: Ctx) {
         showWall();
       }),
     );
-    field('height').addEventListener('input', () => {
-      const h = Number(field('height').value);
-      if (h >= 2 && h <= 200) {
-        s.height = h;
-        drawGhost();
-      }
-    });
 
     const thumbs = f.querySelector<HTMLDivElement>('.thumbs')!;
     const renderThumbs = () => {
@@ -331,7 +321,9 @@ export async function setupBuildMode(ctx: Ctx) {
           photos.push(r.path);
         }
         const opt = (v: string) => v.trim() || undefined;
+        // Start from the saved place so fields the form doesn't show (look, lot) survive an edit.
         const place: Place = {
+          ...p,
           id,
           name,
           category: field<HTMLSelectElement>('category').value as Category,

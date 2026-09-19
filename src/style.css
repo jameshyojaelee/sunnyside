@@ -8,7 +8,7 @@
   --panel-border: #9db2ec;
   --panel-text: #f5f1d8;
   --panel-muted: #c9cfe8;
-  --plumbob: #35c94a;
+  --heart: #ee4a5e;
   --gutter: 16px;
   font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: dark;
@@ -148,12 +148,12 @@ body {
   align-items: center;
   gap: 6px;
 }
-.diamond {
-  width: 10px;
+.heart {
+  width: 14px;
   height: 14px;
-  background: var(--plumbob);
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  fill: var(--heart);
   display: inline-block;
+  flex: none;
 }
 
 .credit {

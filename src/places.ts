@@ -25,6 +25,24 @@ export interface Place {
   storefront: [number, number];
   /** Wall index i (footprint[i] -> footprint[i + 1]) that carries the awning; nearest wall if omitted. */
   facadeEdge?: number;
+  /** Building look. Default: windows on every floor and a striped awning. */
+  style?: PlaceStyle;
+  /** Things around the building, all [lon, lat]. */
+  lot?: PlaceLot;
+}
+
+export const PLACE_STYLES = ['fast-food'] as const;
+export type PlaceStyle = (typeof PLACE_STYLES)[number];
+
+export interface PlaceLot {
+  /** Parking lot outlines (asphalt). */
+  paved?: Array<Array<[number, number]>>;
+  /** Walkway outlines (concrete), drawn over the asphalt. */
+  walks?: Array<Array<[number, number]>>;
+  /** Drive-thru lane centerline in driving order. */
+  driveThru?: Array<[number, number]>;
+  /** Base of a tall sign on a pole. */
+  poleSign?: [number, number];
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -80,6 +98,19 @@ export function validatePlaces(input: unknown): string[] {
     if (!pointInRing(sx, sy, ring) && distToRing(sx, sy, ring) > 3) err('storefront must be inside the building (or within 3 m)');
     if (p.facadeEdge !== undefined && !(Number.isInteger(p.facadeEdge) && p.facadeEdge >= 0 && p.facadeEdge < p.footprint.length))
       err('facadeEdge must be a wall index');
+    if (p.style !== undefined && !PLACE_STYLES.includes(p.style)) err(`style must be one of ${PLACE_STYLES.join(', ')}`);
+    if (p.lot !== undefined) {
+      const lot = p.lot as PlaceLot;
+      const rings = (r: unknown) => r === undefined || (Array.isArray(r) && r.every((ring) => Array.isArray(ring) && ring.length >= 3 && ring.every(isLonLat)));
+      if (typeof lot !== 'object' || lot === null) err('lot must be an object');
+      else {
+        if (!rings(lot.paved)) err('lot.paved must be outlines of 3+ [lon, lat] points');
+        if (!rings(lot.walks)) err('lot.walks must be outlines of 3+ [lon, lat] points');
+        if (lot.driveThru !== undefined && !(Array.isArray(lot.driveThru) && lot.driveThru.length >= 2 && lot.driveThru.every(isLonLat)))
+          err('lot.driveThru must be 2+ [lon, lat] points');
+        if (lot.poleSign !== undefined && !isLonLat(lot.poleSign)) err('lot.poleSign must be a [lon, lat] point');
+      }
+    }
   });
   return errs;
 }

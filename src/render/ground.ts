@@ -100,7 +100,7 @@ function mesh(geo: THREE.BufferGeometry, mat: THREE.Material, order: number): TH
   return m;
 }
 
-export function buildGround(data: MapData, fade: FadeUniforms): THREE.Group {
+export function buildGround(data: MapData, fade: FadeUniforms): { group: THREE.Group; lotOrder: number } {
   const group = new THREE.Group();
   group.name = 'ground';
   let order = -1000;
@@ -135,6 +135,9 @@ export function buildGround(data: MapData, fade: FadeUniforms): THREE.Group {
     geos.forEach((g) => g.dispose());
   }
 
+  // Draw slot for place lots (parking, drive-thru lanes): above land use, below rails and roads.
+  const lotOrder = order++;
+
   // Ground-level railway tracks: bed, then two steel rails left by an inner bed strip.
   const railBed = groundMaterial(COLORS.railBed, 'grain', fade);
   const railSteel = groundMaterial(COLORS.railSteel, 'plain', fade);
@@ -158,5 +161,5 @@ export function buildGround(data: MapData, fade: FadeUniforms): THREE.Group {
     ];
     for (const [lines, mat] of layers) if (lines.length) group.add(mesh(buildStrips(lines), mat, order++));
   }
-  return group;
+  return { group, lotOrder };
 }

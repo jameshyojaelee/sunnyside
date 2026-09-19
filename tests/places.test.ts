@@ -48,3 +48,35 @@ describe('validatePlaces', () => {
     expect(validatePlaces([fixtures[0], fixtures[0]]).join()).toContain('duplicate');
   });
 });
+
+describe('validatePlaces: style and lot', () => {
+  const base = () => structuredClone(fixtures[0]);
+  it('accepts a fast-food place with a lot', () => {
+    const p = base();
+    const [lon, lat] = p.storefront;
+    p.style = 'fast-food';
+    p.lot = {
+      paved: [
+        [
+          [lon, lat],
+          [lon + 0.0002, lat],
+          [lon, lat + 0.0002],
+        ],
+      ],
+      driveThru: [
+        [lon, lat],
+        [lon + 0.0001, lat],
+      ],
+      poleSign: [lon + 0.0001, lat + 0.0001],
+    };
+    expect(validatePlaces([p])).toEqual([]);
+  });
+  it('rejects an unknown style and a malformed lot', () => {
+    const p = base();
+    (p as unknown as { style: string }).style = 'castle';
+    p.lot = { driveThru: [[0, 0]] as Array<[number, number]> };
+    const errs = validatePlaces([p]).join('\n');
+    expect(errs).toContain('style');
+    expect(errs).toContain('driveThru');
+  });
+});
