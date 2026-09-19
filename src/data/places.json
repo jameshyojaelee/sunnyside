@@ -1,5 +1,89 @@
 [
   {
+    "id": "chase-bank",
+    "name": "Chase Bank",
+    "category": "service",
+    "description": "Where we go for robbery",
+    "address": "46-10 Queens Boulevard",
+    "osmBuildingId": "w280354514",
+    "footprint": [
+      [
+        -73.9182466,
+        40.7428335
+      ],
+      [
+        -73.9183922,
+        40.7428533
+      ],
+      [
+        -73.9184301,
+        40.7426822
+      ],
+      [
+        -73.9184526,
+        40.7426849
+      ],
+      [
+        -73.9185142,
+        40.7424084
+      ],
+      [
+        -73.9183295,
+        40.7424643
+      ]
+    ],
+    "height": 5.2,
+    "storefront": [
+      -73.9184549,
+      40.7425119
+    ],
+    "facadeEdge": 4
+  },
+  {
+    "id": "curleys-bagels",
+    "name": "Curley's Bagels",
+    "category": "bakery",
+    "description": "Best bagels in town. try the Lox Royale.",
+    "address": "43-04 47th",
+    "osmBuildingId": "w280348773",
+    "footprint": [
+      [
+        -73.9217296,
+        40.7411207
+      ],
+      [
+        -73.9213496,
+        40.7412864
+      ],
+      [
+        -73.9213543,
+        40.7413044
+      ],
+      [
+        -73.9217391,
+        40.7413494
+      ],
+      [
+        -73.9217616,
+        40.7413377
+      ],
+      [
+        -73.9218077,
+        40.7411018
+      ],
+      [
+        -73.9217912,
+        40.7410946
+      ]
+    ],
+    "height": 5.8,
+    "storefront": [
+      -73.9216838,
+      40.7412845
+    ],
+    "facadeEdge": 2
+  },
+  {
     "id": "key-food-fresh-n-save",
     "name": "Key Food Fresh n Save",
     "category": "grocery",
@@ -183,6 +267,231 @@
     ],
     "facadeEdge": 2,
     "visited": "2026-09-17"
+  },
+  {
+    "id": "shake-shack",
+    "name": "Shake Shack",
+    "category": "restaurant",
+    "description": "Juicy burgers with thicc shakes",
+    "address": "46-20 Queens Boulevard",
+    "osmBuildingId": "w280354511",
+    "footprint": [
+      [
+        -73.9183295,
+        40.7424643
+      ],
+      [
+        -73.917998,
+        40.7425687
+      ],
+      [
+        -73.9179743,
+        40.7426029
+      ],
+      [
+        -73.9179305,
+        40.7427974
+      ],
+      [
+        -73.9182466,
+        40.7428335
+      ]
+    ],
+    "height": 10.2,
+    "storefront": [
+      -73.9180752,
+      40.7426955
+    ],
+    "facadeEdge": 3,
+    "facade": {
+      "wall": "#8e9196",
+      "finish": "smooth",
+      "windows": true,
+      "shopGlass": 3.4,
+      "cornice": "#b9bcc0",
+      "band": {
+        "color": "#141414",
+        "text": "SHAKE SHACK",
+        "textColor": "#ffffff",
+        "width": 9,
+        "height": 1.1
+      },
+      "posts": "#2f6b45"
+    }
+  },
+  {
+    "id": "souk-al-shater",
+    "name": "Souk Al Shater",
+    "category": "restaurant",
+    "description": "A small shop serving Middle Eastern plates. Shawarma is juicy and the staff are super friendly. A whole tub of baba ganoush for FIVE dollars.",
+    "address": "43-03 Queens Boulevard",
+    "osmBuildingId": "w280365452",
+    "footprint": [
+      [
+        -73.9210903,
+        40.7439519
+      ],
+      [
+        -73.9211554,
+        40.74396
+      ],
+      [
+        -73.9212028,
+        40.7437358
+      ],
+      [
+        -73.9211365,
+        40.7437277
+      ]
+    ],
+    "height": 9.6,
+    "storefront": [
+      -73.9211687,
+      40.7437362
+    ],
+    "facadeEdge": 2
+  },
+  {
+    "id": "super-key-food",
+    "name": "Super Key Food",
+    "category": "grocery",
+    "description": "Key Food. But super.",
+    "address": "50-15 Roosevelt Avenue",
+    "osmBuildingId": "w280340478",
+    "footprint": [
+      [
+        -73.9140912,
+        40.7439384
+      ],
+      [
+        -73.9140556,
+        40.7441473
+      ],
+      [
+        -73.9140829,
+        40.7441509
+      ],
+      [
+        -73.9140545,
+        40.7442887
+      ],
+      [
+        -73.9145541,
+        40.744349
+      ],
+      [
+        -73.9146263,
+        40.7440005
+      ],
+      [
+        -73.914457,
+        40.7439798
+      ],
+      [
+        -73.9144605,
+        40.7439663
+      ],
+      [
+        -73.9140959,
+        40.743915
+      ]
+    ],
+    "height": 8.1,
+    "storefront": [
+      -73.9141647,
+      40.7439293
+    ],
+    "facadeEdge": 7,
+    "facade": {
+      "wall": "#9b5a43",
+      "finish": "stone",
+      "shopGlass": 2.9,
+      "canopy": "#2f5a3e",
+      "cornice": "#dccfb8",
+      "gable": {
+        "width": 10,
+        "rise": 3,
+        "color": "#9b5a43"
+      },
+      "band": {
+        "color": "#f6f3ec",
+        "text": "SUPER KEY FOOD",
+        "textColor": "#c8202f",
+        "width": 8,
+        "height": 1.3,
+        "bottom": 6.2
+      }
+    },
+    "lot": {
+      "paved": [
+        [
+          [
+            -73.9146701,
+            40.7436016
+          ],
+          [
+            -73.9143386,
+            40.7437097
+          ],
+          [
+            -73.9140189,
+            40.7438177
+          ],
+          [
+            -73.9139716,
+            40.7438988
+          ],
+          [
+            -73.9139006,
+            40.7442229
+          ],
+          [
+            -73.9139657,
+            40.7442365
+          ],
+          [
+            -73.9140604,
+            40.7439483
+          ],
+          [
+            -73.9146523,
+            40.7440203
+          ],
+          [
+            -73.9146642,
+            40.7439303
+          ]
+        ]
+      ],
+      "stallRows": [
+        {
+          "a": [
+            -73.914611,
+            40.7439877
+          ],
+          "b": [
+            -73.9142265,
+            40.7439224
+          ],
+          "side": -1,
+          "depth": 5,
+          "fill": 0.8
+        },
+        {
+          "a": [
+            -73.9146405,
+            40.7436331
+          ],
+          "b": [
+            -73.9140781,
+            40.7438132
+          ],
+          "side": 1,
+          "depth": 5,
+          "fill": 0.85
+        }
+      ]
+    }
   },
   {
     "id": "wendy-s",
