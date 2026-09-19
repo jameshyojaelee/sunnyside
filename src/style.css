@@ -1,0 +1,222 @@
+:root {
+  --sims-blue-1: #3f5fd4;
+  --sims-blue-2: #1c2d8c;
+  --sims-blue-dark: #15215f;
+  --sims-rim: #e9eefc;
+  --panel-1: #2d4396;
+  --panel-2: #1b2a6b;
+  --panel-border: #9db2ec;
+  --panel-text: #f5f1d8;
+  --panel-muted: #c9cfe8;
+  --plumbob: #35c94a;
+  --gutter: 16px;
+  font-family: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1a2b13;
+  color: var(--panel-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+#map {
+  position: fixed;
+  inset: 0;
+}
+
+.map-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  outline: none;
+}
+.map-canvas:active {
+  cursor: grabbing;
+}
+.map-canvas.pointing {
+  cursor: pointer;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+#ui > * {
+  pointer-events: auto;
+}
+
+/* ---- Round Sims-style buttons ------------------------------------------------------------ */
+.topbar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: var(--gutter);
+  right: var(--gutter);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.btn-group {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+.round-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid var(--sims-rim);
+  background: radial-gradient(circle at 35% 30%, var(--sims-blue-1), var(--sims-blue-2) 70%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.45),
+    inset 0 -3px 6px rgba(0, 0, 30, 0.45);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 0.12s ease,
+    filter 0.12s ease;
+}
+.round-btn svg {
+  width: 26px;
+  height: 26px;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 40, 0.6));
+}
+.round-btn:hover {
+  filter: brightness(1.15);
+}
+.round-btn:active {
+  transform: scale(0.94);
+}
+.round-btn:focus-visible {
+  outline: 3px solid #ffe066;
+  outline-offset: 2px;
+}
+.round-btn[aria-pressed='true'] {
+  background: radial-gradient(circle at 35% 30%, #5fd46a, #1f7d2d 70%);
+}
+
+/* ---- Panels ----------------------------------------------------------------------------- */
+.panel {
+  background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
+  border: 2px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  color: var(--panel-text);
+}
+
+.title-plate {
+  position: absolute;
+  left: var(--gutter);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  padding: 10px 16px 12px;
+  min-width: 190px;
+}
+.title-plate .name {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  text-shadow: 0 2px 0 rgba(0, 0, 40, 0.5);
+}
+.title-plate .sub {
+  font-size: 13px;
+  color: var(--panel-muted);
+  font-weight: 700;
+}
+.title-plate .count {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.diamond {
+  width: 10px;
+  height: 14px;
+  background: var(--plumbob);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  display: inline-block;
+}
+
+.credit {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.credit a {
+  color: inherit;
+}
+
+/* ---- Loading ------------------------------------------------------------------------------ */
+.loading {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #1a2b13;
+  transition: opacity 0.5s ease;
+  z-index: 10;
+}
+.loading.done {
+  opacity: 0;
+  pointer-events: none;
+}
+.loading-panel {
+  padding: 22px 34px;
+  text-align: center;
+  min-width: 260px;
+}
+.loading-title {
+  font-size: 30px;
+  font-weight: 900;
+}
+.loading-line {
+  margin-top: 6px;
+  color: var(--panel-muted);
+  font-weight: 700;
+}
+
+@media (max-width: 520px) {
+  :root {
+    --gutter: 12px;
+  }
+  .round-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .round-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+  .btn-group {
+    gap: 6px;
+  }
+  .title-plate {
+    min-width: 0;
+    padding: 8px 12px 10px;
+  }
+  .title-plate .name {
+    font-size: 21px;
+  }
+}
