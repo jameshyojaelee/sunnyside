@@ -59,8 +59,9 @@ export class MapApp {
     this.renderer.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault());
     this.renderer.domElement.addEventListener('webglcontextrestored', () => location.reload());
 
-    // Camera looks along the street grid's diagonal, like a Sims neighborhood.
-    this.baseAzimuth = ((data.gridAngle + 45) * Math.PI) / 180;
+    // Camera looks across the street grid at an angle, like a Sims neighborhood, turned a little
+    // toward north (grid + 30 deg puts north about 20 deg right of straight up).
+    this.baseAzimuth = ((data.gridAngle + 30) * Math.PI) / 180;
 
     // Shadows fall toward the right of the default view and slightly away from the camera.
     const fwd = new THREE.Vector2(Math.cos(this.baseAzimuth), Math.sin(this.baseAzimuth));
