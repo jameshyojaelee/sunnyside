@@ -58,3 +58,23 @@ describe('awning spans', () => {
     expect(b.t0 * b.len - a.t1 * a.len).toBeGreaterThanOrEqual(0.4 - 1e-9);
   });
 });
+
+describe('chooseFacadeEdge on a narrow corner shop', () => {
+  // 6 m front on "Queens Boulevard" (south, y = -8), 25 m side along "43rd Street" (west, x = -8).
+  const shop: Pt[] = [
+    [0, 0],
+    [6, 0],
+    [6, 25],
+    [0, 25],
+  ];
+  const streets: NamedRoad[] = [
+    { n: 'Queens Boulevard', w: 12, p: [-100, -8, 100, -8] },
+    { n: '43rd Street', w: 9, p: [-8, -100, -8, 100] },
+  ];
+  it('puts the awning on the addressed street even if the click was by the side wall', () => {
+    expect(chooseFacadeEdge(shop, [0.5, 12], streets, '43-03 Queens Boulevard')).toBe(0);
+  });
+  it('still follows the click when the address names no adjoining street', () => {
+    expect(chooseFacadeEdge(shop, [0.5, 12], streets, '99 Nowhere Lane')).toBe(3);
+  });
+});

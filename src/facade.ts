@@ -56,9 +56,10 @@ function nearestRoad(roads: NamedRoad[], x: number, y: number): { gap: number; n
 }
 
 /**
- * Picks the storefront wall. When the click is right next to a wall, choose among the walls about
- * that close the one that faces a street (a click in a corner notch should not pick a set-back
- * wall). Otherwise prefer street-facing walls, especially the street named in the address.
+ * Picks the storefront wall. Walls facing the street named in the address win. Otherwise, when
+ * the click is right next to a wall, choose among the walls about that close the one that faces a
+ * street (a click in a corner notch should not pick a set-back wall); failing that, prefer
+ * street-facing walls near the click.
  */
 export function chooseFacadeEdge(ring: Pt[], storefront: Pt, roads: NamedRoad[], address?: string): number {
   const street = address ? streetOf(address) : '';
@@ -74,6 +75,10 @@ export function chooseFacadeEdge(ring: Pt[], storefront: Pt, roads: NamedRoad[],
   });
   const usable = walls.filter((w) => w.len >= 2);
   if (!usable.length) return nearestEdge(ring, storefront);
+  // A shop's address names the street its door faces: if a wall faces that street, use it
+  // (the one nearest the click if several do), even when the click landed by a side wall.
+  const onStreet = usable.filter((w) => w.matches && w.gap < 12);
+  if (onStreet.length) return onStreet.reduce((a, b) => (b.d < a.d ? b : a)).i;
   const dmin = Math.min(...usable.map((w) => w.d));
   const pool = dmin < 2.5 ? usable.filter((w) => w.d < dmin + 1.5) : usable;
   const score = (w: (typeof walls)[number]) => (dmin < 2.5 ? w.gap + w.d * 0.1 : w.d + 1.5 * w.gap) - (w.matches ? 12 : 0);
