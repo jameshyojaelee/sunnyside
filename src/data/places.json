@@ -1,5 +1,123 @@
 [
   {
+    "id": "key-food-fresh-n-save",
+    "name": "Key Food Fresh n Save",
+    "category": "grocery",
+    "description": "Open 24 hours. good for midnight munchies",
+    "address": "46-02 Queens Boulevard",
+    "osmBuildingId": "w331127071",
+    "footprint": [
+      [
+        -73.9187308,
+        40.7423679
+      ],
+      [
+        -73.9185118,
+        40.7424183
+      ],
+      [
+        -73.9184526,
+        40.7426849
+      ],
+      [
+        -73.9184301,
+        40.7426822
+      ],
+      [
+        -73.9183922,
+        40.7428533
+      ],
+      [
+        -73.9186468,
+        40.7428866
+      ]
+    ],
+    "height": 8.9,
+    "storefront": [
+      -73.9186568,
+      40.7427877
+    ],
+    "facadeEdge": 5,
+    "facade": {
+      "wall": "#e4e5e2",
+      "finish": "smooth",
+      "shopGlass": 3.6,
+      "canopy": "#8b9096",
+      "cornice": "#cfd2cf",
+      "letters": {
+        "text": "FRESH & SAVE",
+        "color": "#2f9e44"
+      },
+      "band": {
+        "color": "#c62a45",
+        "text": "MARKETPLACE",
+        "textColor": "#ffffff",
+        "width": 13,
+        "height": 0.8
+      },
+      "corner": {
+        "lines": [
+          "OPEN",
+          "24",
+          "HOURS"
+        ],
+        "color": "#ffffff",
+        "bg": "#16181b"
+      }
+    }
+  },
+  {
+    "id": "kora",
+    "name": "Kora",
+    "category": "bakery",
+    "description": "THE BEST PASTRIES",
+    "address": "45-12 Greenpoint Ave",
+    "osmBuildingId": "w280354505",
+    "footprint": [
+      [
+        -73.9194814,
+        40.741589
+      ],
+      [
+        -73.9194613,
+        40.7415872
+      ],
+      [
+        -73.9195039,
+        40.7418879
+      ],
+      [
+        -73.9198164,
+        40.7417511
+      ],
+      [
+        -73.9198413,
+        40.7416313
+      ]
+    ],
+    "height": 6.6,
+    "storefront": [
+      -73.9195627,
+      40.7418014
+    ],
+    "facadeEdge": 2,
+    "facade": {
+      "wall": "#cdbb9b",
+      "finish": "stone",
+      "shopGlass": 3.2,
+      "cornice": "#a8966f",
+      "band": {
+        "color": "#c7362d",
+        "text": "KORA",
+        "textColor": "#ffffff",
+        "width": 7,
+        "height": 1.9,
+        "pattern": "tile"
+      },
+      "posts": "#e8b923"
+    }
+  },
+  {
     "id": "makina",
     "name": "Makina",
     "category": "restaurant",
