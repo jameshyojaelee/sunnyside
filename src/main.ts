@@ -2,7 +2,7 @@ import './style.css';
 import { MapApp } from './app.ts';
 import placesJson from './data/places.json';
 import { makeProjection } from './geo.ts';
-import { attachInput } from './input.ts';
+import { attachInput, type InputHandlers } from './input.ts';
 import type { MapData } from './mapdata.ts';
 import { validatePlaces, type Place } from './places.ts';
 import { PlacesController } from './placesController.ts';
@@ -90,12 +90,25 @@ async function start() {
   };
   controller.setPlaces(usable(await loadPlaces()));
 
-  attachInput(app, app.renderer.domElement, {
+  const browse: InputHandlers = {
     onTap: (x, y) => controller.tap(x, y),
     onHover: (x, y) => controller.hover(x, y),
     onLeave: () => controller.clearHover(),
     onEscape: () => controller.deselect(),
+  };
+  let input = browse;
+  attachInput(app, app.renderer.domElement, {
+    onTap: (x, y, t) => input.onTap?.(x, y, t),
+    onHover: (x, y) => input.onHover?.(x, y),
+    onLeave: () => input.onLeave?.(),
+    onEscape: () => input.onEscape?.(),
   });
+
+  // Build mode exists only on the local dev server; this branch is removed from production builds.
+  if (import.meta.env.DEV) {
+    const { setupBuildMode } = await import('./build/buildMode.ts');
+    await setupBuildMode({ app, controller, proj, data, ui, buttonHost: left, setInput: (h) => (input = h ?? browse) });
+  }
 
   window.clearInterval(ticker);
   document.getElementById('loading')!.classList.add('done');

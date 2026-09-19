@@ -97,6 +97,12 @@ export class PlacesController {
     this.app.requestRender();
   }
 
+  /** The place under a screen point, if any (Build mode uses this to edit). */
+  placeAt(sx: number, sy: number): Place | null {
+    const t = this.pickAt(sx, sy);
+    return t ? (this.places.find((p) => p.id === t.id) ?? null) : null;
+  }
+
   /** Select a place by id (from the places list). */
   selectPlace(id: string) {
     const t = this.targetById(id);
