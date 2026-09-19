@@ -188,3 +188,22 @@ describe('stitchLines', () => {
     expect(main[2]).toEqual([20, 0]);
   });
 });
+
+describe('regionNorthOf', () => {
+  it('follows the northernmost of two carriageways and extends flat past their ends', async () => {
+    const { regionNorthOf, pointInRing } = await import('../src/geo.ts');
+    const south: Pt[] = [
+      [0, 0],
+      [100, -50],
+    ];
+    const north: Pt[] = [
+      [0, 10],
+      [100, -40],
+    ];
+    const r = regionNorthOf([south, north], 5, -50, 150, 500, 1);
+    expect(pointInRing(50, -15 + 6, r)).toBe(true); // just above north edge (y=-15) + pad 5
+    expect(pointInRing(50, -15 + 4, r)).toBe(false); // inside the pad
+    expect(pointInRing(-40, 16, r)).toBe(true); // west of the lines: flat at y = 10 + 5
+    expect(pointInRing(-40, 14, r)).toBe(false);
+  });
+});

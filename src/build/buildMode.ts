@@ -101,6 +101,10 @@ export async function setupBuildMode(ctx: Ctx) {
     return best;
   };
 
+  // Start loading outlines now so the search box is ready (and focused) the moment Build opens;
+  // otherwise early keystrokes would hit the map's rotate/zoom shortcuts.
+  const ready = loadBuildingsLater();
+
   // ---- UI ----------------------------------------------------------------------------------
   const button = roundButton(ICONS.build, 'Build mode (add a place)', () => toggle());
   button.setAttribute('aria-pressed', 'false');
@@ -364,6 +368,10 @@ export async function setupBuildMode(ctx: Ctx) {
   };
 
   // ---- Buildings, picking, overlays ----------------------------------------------------------
+  function loadBuildingsLater(): Promise<void> {
+    return new Promise((resolve) => setTimeout(() => loadBuildings().then(resolve, () => resolve()), 0));
+  }
+
   async function loadBuildings() {
     if (buildings.length) return;
     const [bs, ps] = await Promise.all([api<DevBuilding[]>('/__build/buildings'), api<DevPoi[]>('/__build/pois')]);
@@ -563,6 +571,7 @@ export async function setupBuildMode(ctx: Ctx) {
       panel.hidden = false;
       panel.innerHTML = '<h2>Build mode</h2><p class="hint">Loading buildings…</p>';
       try {
+        await ready;
         await loadBuildings();
       } catch (e) {
         panel.innerHTML = `<h2>Build mode</h2><p class="error">Could not load buildings: ${html((e as Error).message)}</p>`;

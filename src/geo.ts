@@ -243,3 +243,37 @@ export function lineLength(line: Pt[]): number {
   for (let i = 1; i < line.length; i++) s += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
   return s;
 }
+
+/**
+ * Polygon covering everything north of a set of roughly west-east lines (e.g. a highway's
+ * carriageways), `pad` meters above their northernmost edge, from x0 to x1 and up to y = top.
+ * Beyond the lines' ends the edge continues flat at the nearest known height.
+ */
+export function regionNorthOf(lines: Pt[][], pad: number, x0: number, x1: number, top: number, step = 5): Pt[] {
+  const edge = (x: number): number | null => {
+    let best: number | null = null;
+    for (const l of lines)
+      for (let i = 0; i + 1 < l.length; i++) {
+        const [ax, ay] = l[i];
+        const [bx, by] = l[i + 1];
+        if (ax === bx || x < Math.min(ax, bx) || x > Math.max(ax, bx)) continue;
+        const y = ay + ((by - ay) * (x - ax)) / (bx - ax);
+        best = best === null ? y : Math.max(best, y);
+      }
+    return best;
+  };
+  const xs: number[] = [];
+  for (let x = x0; x < x1; x += step) xs.push(x);
+  xs.push(x1);
+  const ys = xs.map(edge);
+  const known = ys.map((y, i) => (y === null ? -1 : i)).filter((i) => i >= 0);
+  if (!known.length) throw new Error('regionNorthOf: lines do not span the range');
+  const filled = ys.map((y, i) => {
+    if (y !== null) return y;
+    const nearest = known.reduce((a, b) => (Math.abs(b - i) < Math.abs(a - i) ? b : a));
+    return ys[nearest]!;
+  });
+  const ring: Pt[] = xs.map((x, i) => [x, filled[i] + pad]);
+  ring.push([x1, top], [x0, top]);
+  return ring;
+}

@@ -3,6 +3,7 @@
 //   dev-data/buildings.json, dev-data/pois.json  (Build mode only; never shipped)
 // Run after `npm run fetch-data`: `npm run build-data`.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import polygonClipping, { type Polygon } from 'polygon-clipping';
 import {
   distToRing,
   distToSegment,
@@ -10,6 +11,7 @@ import {
   normalizeRing,
   pointInPolygon,
   pointInRing,
+  regionNorthOf,
   rng,
   round1,
   lineLength,
@@ -58,9 +60,23 @@ async function main() {
   const proj = makeProjection(origin.lon, origin.lat);
   const P = (g: LatLon): Pt => proj.toLocal(g.lon, g.lat);
 
-  const boundary: Pt[][][] = boundaryGeo.coordinates.map((poly) =>
-    poly.map((ring) => simplifyRing(normalizeRing(ring.map(([lon, lat]) => proj.toLocal(lon, lat))), 1)!).filter(Boolean),
-  );
+  // Our Sunnyside ends at the Long Island Expressway: everything south of it (Calvary Cemetery,
+  // Blissville, the blocks below the BQE interchange) is left out, per the site owners. The cut
+  // runs along the LIE's northernmost carriageway edge. The origin above stays on the official
+  // NTA extent so coordinates don't shift if this rule changes.
+  const base = await readRaw<{ elements: OsmEl[] }>('osm-base.json');
+  const lie = base.elements
+    .filter((e) => e.type === 'way' && e.tags?.highway === 'motorway' && e.tags?.ref === 'I 495' && e.geometry)
+    .map((e) => e.geometry!.map(P));
+  const nta = boundaryGeo.coordinates.map((poly) => poly.map((ring) => ring.map(([lon, lat]) => proj.toLocal(lon, lat))));
+  const ntaXs = nta.flat(2).map((p) => p[0]);
+  const ntaYs = nta.flat(2).map((p) => p[1]);
+  const north = regionNorthOf(lie, 9, Math.min(...ntaXs) - 100, Math.max(...ntaXs) + 100, Math.max(...ntaYs) + 100);
+  const trimmed = polygonClipping.intersection(nta as Polygon[], [[...north, north[0]]] as Polygon);
+  const boundary: Pt[][][] = trimmed
+    .map((poly) => poly.map((ring) => simplifyRing(normalizeRing(ring as Pt[]), 1)).filter((r): r is Pt[] => !!r))
+    .filter((poly) => poly.length && Math.abs(signedArea(poly[0])) > 5000);
+  if (!boundary.length) throw new Error('Boundary vanished after the LIE cut');
   const bPts = boundary.flat(2);
   const core = {
     minX: Math.min(...bPts.map((p) => p[0])),
@@ -103,7 +119,6 @@ async function main() {
   };
 
   // ---- OSM base layers -----------------------------------------------------------------------
-  const base = await readRaw<{ elements: OsmEl[] }>('osm-base.json');
   const roads: MapData['roads'] = [];
   const rails: number[][] = [];
   const viaduct: number[][] = [];
@@ -319,6 +334,21 @@ async function main() {
       gridAngle = i + 0.5;
     }
   }
+
+  // ---- Drop anything entirely outside the drawn area --------------------------------------------
+  const touches = (flatPts: number[]) => {
+    for (let i = 0; i < flatPts.length; i += 2) if (inBounds(flatPts[i], flatPts[i + 1])) return true;
+    return false;
+  };
+  const keptRoads = roads.filter((r) => touches(r.p));
+  roads.length = 0;
+  roads.push(...keptRoads);
+  const keptRails = rails.filter(touches);
+  rails.length = 0;
+  rails.push(...keptRails);
+  const keptAreas = areas.filter((a) => touches(flat(a.r[0])));
+  areas.length = 0;
+  areas.push(...keptAreas);
 
   // ---- Write public data ------------------------------------------------------------------------
   const areaOrder: AreaKind[] = ['grass', 'park', 'wood', 'cemetery', 'rail', 'water', 'pitch', 'playground'];
