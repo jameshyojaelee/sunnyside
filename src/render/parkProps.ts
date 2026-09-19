@@ -203,7 +203,7 @@ export function buildParkProps(data: MapData, shadowMaterial: THREE.Material, su
   };
   const gridYaw = (data.gridAngle * Math.PI) / 180;
 
-  for (const prop of data.props) {
+  for (const prop of data.props ?? []) {
     const look = lookAt(prop.x, prop.y);
     const play = new THREE.MeshLambertMaterial({ color: look?.playColor ?? '#2f7fc1' });
     const shape = prop.r ? toPts(prop.r) : prop.l ? toPts(prop.l) : null;

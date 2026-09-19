@@ -23,10 +23,10 @@ export interface MapData {
   areas: Array<{ k: AreaKind; r: number[][]; id?: string; s?: string }>;
   /** Railway tracks at ground level. */
   rails: number[][];
-  /** LIRR third rails, beside their tracks. */
-  thirdRails: number[][];
+  /** LIRR third rails, beside their tracks. Absent in data files built before September 2026. */
+  thirdRails?: number[][];
   /** Center, plus the outline (r) or line (l) when OSM maps the shape, and height if known. */
-  props: Array<{ k: PropKind; x: number; y: number; r?: number[]; l?: number[]; h?: number }>;
+  props?: Array<{ k: PropKind; x: number; y: number; r?: number[]; l?: number[]; h?: number }>;
   /** Elevated subway tracks (7 train), whole, for the trains. */
   viaduct: number[][];
   /** The same tracks split by structure: concrete arches over Queens Blvd (33rd-48th St) or steel. */

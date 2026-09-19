@@ -168,7 +168,7 @@ export function buildGround(data: MapData, fade: FadeUniforms): { group: THREE.G
   const railBed = groundMaterial(COLORS.railBed, 'grain', fade);
   const railSteel = groundMaterial(COLORS.railSteel, 'plain', fade);
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 2.4 }))), groundMaterial(COLORS.ballast, 'gravel', fade), order++));
-  group.add(mesh(buildStrips(data.thirdRails.map((p) => ({ p, hw: 0.28 }))), groundMaterial(COLORS.thirdRail, 'grain', fade), order++));
+  group.add(mesh(buildStrips((data.thirdRails ?? []).map((p) => ({ p, hw: 0.28 }))), groundMaterial(COLORS.thirdRail, 'grain', fade), order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 1.4 }))), railBed, order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 0.82 }))), railSteel, order++));
   group.add(mesh(buildStrips(data.rails.map((p) => ({ p, hw: 0.68 }))), railBed, order++));

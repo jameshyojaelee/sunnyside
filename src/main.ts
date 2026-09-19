@@ -31,6 +31,8 @@ function usable(places: Place[]): Place[] {
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Where startup got to, shown if the map never appears. */
+const stage = (name: string) => (window.__mapStage = name);
 
 async function start() {
   window.__mapStarted = true;
@@ -38,11 +40,14 @@ async function start() {
   let i = 0;
   const ticker = window.setInterval(() => (line.textContent = LOADING_LINES[i++ % LOADING_LINES.length]), 700);
 
-  const res = await fetch(`${import.meta.env.BASE_URL}data/sunnyside.json`);
+  stage('map data');
+  // The stamp makes every deploy ask for its own data: old cached data with new code breaks the map.
+  const res = await fetch(`${import.meta.env.BASE_URL}data/sunnyside.json?v=${__BUILD_ID__}`);
   if (!res.ok) throw new Error(`Map data failed to load (${res.status})`);
   const data = (await res.json()) as MapData;
   const proj = makeProjection(data.origin.lon, data.origin.lat);
 
+  stage('drawing the map');
   const app = new MapApp(document.getElementById('map')!, data);
   const ui = document.getElementById('ui')!;
 
@@ -77,7 +82,9 @@ async function start() {
 
   // Landmarks and the 7 train. The arch sign uses the page font, so wait for it first, but never
   // hang on it: on a slow phone network the font request can stay pending forever.
+  stage('fonts');
   await Promise.race([document.fonts.load('900 54px Nunito').catch(() => undefined), wait(2500)]);
+  stage('places');
   controller.setLandmarks([
     {
       id: 'sunnyside-arch',
@@ -128,6 +135,7 @@ async function start() {
     await setupBuildMode({ app, controller, proj, data, ui, buttonHost: left, setInput: (h) => (input = h ?? browse) });
   }
 
+  stage('ready');
   window.clearInterval(ticker);
   document.getElementById('loading')!.classList.add('done');
 

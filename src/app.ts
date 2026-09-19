@@ -52,9 +52,11 @@ export class MapApp {
   constructor(container: HTMLElement, data: MapData) {
     this.container = container;
     this.data = data;
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, stencil: true, powerPreference: 'high-performance' });
+    // Phones have far less GPU memory than laptops: skip multisampling and draw fewer pixels there.
+    const small = Math.min(window.screen.width, window.screen.height) <= 820;
+    this.renderer = new THREE.WebGLRenderer({ antialias: !small, stencil: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.75 : 2));
     this.renderer.setClearColor('#1a2b13');
     this.renderer.domElement.className = 'map-canvas';
     container.appendChild(this.renderer.domElement);

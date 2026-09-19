@@ -123,7 +123,10 @@ export function isModeledPark(id: string | undefined): boolean {
   return !!id && id in PARK_LOOKS;
 }
 
-const PX = 24; // texture pixels per meter
+// Texture pixels per meter, and a hard cap per court. Court paint is a few thin lines, and phones
+// cannot afford many megabytes of canvas: 33 courts at 24 px/m came to about 32 MB.
+const PX = 10;
+const MAX_PX = 1024;
 
 function paint(ctx: CanvasRenderingContext2D, L: number, W: number, lines: CourtLines | undefined, accent?: string) {
   const lw = 0.1;
@@ -199,7 +202,7 @@ function paint(ctx: CanvasRenderingContext2D, L: number, W: number, lines: Court
 
 export function courtTexture(c: Court): THREE.CanvasTexture {
   const { L, W } = c.frame;
-  const px = Math.min(PX, 2048 / Math.max(L, W));
+  const px = Math.min(PX, MAX_PX / Math.max(L, W));
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(4, Math.ceil(L * px));
   canvas.height = Math.max(4, Math.ceil(W * px));
