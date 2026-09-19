@@ -202,13 +202,6 @@ export async function setupBuildMode(ctx: Ctx) {
         <label>Address <input name="address" /></label>
         <label>First visited <input name="visited" type="date" /></label>
         <label>Link <input name="link" type="url" placeholder="https://" /></label>
-        <div class="row wall">
-          <span>Awning wall</span>
-          <button type="button" data-wall="-1" aria-label="Previous wall">◀</button>
-          <span class="wall-name"></span>
-          <button type="button" data-wall="1" aria-label="Next wall">▶</button>
-          <button type="button" data-wall="0" class="link-btn">auto</button>
-        </div>
         <label>Photos (up to ${MAX_PHOTOS}) <input name="photos" type="file" accept="image/*" multiple /></label>
         <div class="thumbs"></div>
         <p class="error" role="alert"></p>
@@ -228,30 +221,7 @@ export async function setupBuildMode(ctx: Ctx) {
     field('link').value = p?.link ?? '';
     if (!p && pendingName) field('name').value = pendingName;
 
-    const wallName = f.querySelector<HTMLSpanElement>('.wall-name')!;
-    const showWall = () => {
-      const a = s.ring[s.facadeEdge];
-      const b = s.ring[(s.facadeEdge + 1) % s.ring.length];
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      const n = [(b[1] - a[1]) / len, -(b[0] - a[0]) / len];
-      const street = roadAt((a[0] + b[0]) / 2 + n[0] * 6, (a[1] + b[1]) / 2 + n[1] * 6, 25);
-      wallName.textContent = `${street ? `faces ${street}` : 'no street'} (${len.toFixed(0)} m)${s.facadeManual ? '' : ', auto'}`;
-      drawGhost();
-    };
-    showWall();
-    f.querySelectorAll<HTMLButtonElement>('[data-wall]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        const d = Number(btn.dataset.wall);
-        if (d === 0) {
-          s.facadeManual = false;
-          s.facadeEdge = chooseFacadeEdge(s.ring, s.storefront, namedRoads, field('address').value);
-        } else {
-          s.facadeManual = true;
-          s.facadeEdge = (s.facadeEdge + d + s.ring.length) % s.ring.length;
-        }
-        showWall();
-      }),
-    );
+    drawGhost();
 
     const thumbs = f.querySelector<HTMLDivElement>('.thumbs')!;
     const renderThumbs = () => {
@@ -314,6 +284,8 @@ export async function setupBuildMode(ctx: Ctx) {
       save.textContent = 'Saving…';
       try {
         const id = p?.id ?? uniqueSlug(name);
+        // New places: pick the awning wall from the final address (edits keep their wall).
+        if (!s.facadeManual) s.facadeEdge = chooseFacadeEdge(s.ring, s.storefront, namedRoads, field('address').value);
         const photos = [...s.photos];
         for (const [i, file] of s.newPhotos.entries()) {
           const blob = await shrinkPhoto(file);

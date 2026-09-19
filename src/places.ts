@@ -1,4 +1,4 @@
-import { CATEGORY_IDS, type Category } from './data/categories.ts';
+import { CATEGORIES, CATEGORY_IDS, type Category } from './data/categories.ts';
 import { distToRing, makeProjection, pointInRing, signedArea, type Pt } from './geo.ts';
 
 /** One establishment we have visited. Stored in src/data/places.json. */
@@ -25,6 +25,8 @@ export interface Place {
   storefront: [number, number];
   /** Wall index i (footprint[i] -> footprint[i + 1]) that carries the awning; nearest wall if omitted. */
   facadeEdge?: number;
+  /** Awning and sign color like "#2f8a4f"; defaults to the category's color. */
+  color?: string;
   /** Building look. Default: windows on every floor and a striped awning. */
   style?: PlaceStyle;
   /** Things around the building, all [lon, lat]. */
@@ -58,6 +60,11 @@ const isLonLat = (p: unknown): p is [number, number] =>
   p[0] < -73.8 &&
   p[1] > 40.65 &&
   p[1] < 40.8;
+
+/** The color used for a place's awning and signs. */
+export function placeColor(p: Pick<Place, 'category' | 'color'>): string {
+  return p.color ?? CATEGORIES[p.category].color;
+}
 
 /** Returns a list of human-readable problems; empty means valid. */
 export function validatePlaces(input: unknown): string[] {
@@ -99,6 +106,7 @@ export function validatePlaces(input: unknown): string[] {
     if (p.facadeEdge !== undefined && !(Number.isInteger(p.facadeEdge) && p.facadeEdge >= 0 && p.facadeEdge < p.footprint.length))
       err('facadeEdge must be a wall index');
     if (p.style !== undefined && !PLACE_STYLES.includes(p.style)) err(`style must be one of ${PLACE_STYLES.join(', ')}`);
+    if (p.color !== undefined && (typeof p.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(p.color))) err('color must look like "#2f8a4f"');
     if (p.lot !== undefined) {
       const lot = p.lot as PlaceLot;
       const rings = (r: unknown) => r === undefined || (Array.isArray(r) && r.every((ring) => Array.isArray(ring) && ring.length >= 3 && ring.every(isLonLat)));

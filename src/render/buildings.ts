@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { CATEGORIES, type Category } from '../data/categories.ts';
+import type { Category } from '../data/categories.ts';
 import { awningSpan, nearestEdge, separateSpans } from '../facade.ts';
 import { distToRing, pointInRing, ringCentroid, type Pt } from '../geo.ts';
-import type { Place } from '../places.ts';
+import { placeColor, type Place } from '../places.ts';
 import { buildLot, pickupSpot, type Lot, type LotEnv } from './lot.ts';
 import { buildStrips } from './strips.ts';
 
@@ -114,14 +114,14 @@ function fastFoodTexture(color: string) {
   );
 }
 
-/** Sign board: category color with a simple white pictogram. */
-function signTexture(category: Category) {
+/** Sign board: the place's color with a simple white category pictogram. */
+function signTexture(category: Category, color: string) {
   const t = cachedTexture(
-    `sign:${category}`,
+    `sign:${category}:${color}`,
     (ctx) => {
       ctx.fillStyle = '#f4efe2';
       ctx.fillRect(0, 0, 128, 32);
-      ctx.fillStyle = CATEGORIES[category].color;
+      ctx.fillStyle = color;
       ctx.fillRect(3, 3, 122, 26);
       ctx.fillStyle = ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
@@ -300,7 +300,7 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     g.name = `building:${key}`;
     g.userData.key = key;
 
-    const brand = CATEGORIES[first.category].color;
+    const brand = placeColor(first);
     const wallMat = new THREE.MeshLambertMaterial({ map: fastFood ? fastFoodTexture(brand) : windowTexture(WALL_COLORS[hash(key) % WALL_COLORS.length]) });
     g.add(new THREE.Mesh(wallGeometry(ring, h, fastFood ? 1 : undefined), wallMat));
 
@@ -357,7 +357,7 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
       const top = Math.min(3.4, h - 0.9);
       const drop = fastFood ? 0.35 : 0.7;
       const depth = fastFood ? 1.2 : 1.4;
-      const color = CATEGORIES[p.category].color;
+      const color = placeColor(p);
       const width = (span.t1 - span.t0) * span.len;
       const { at, n } = addAwning(edge, span.t0, span.t1, top, depth, drop, awningTexture(color, fastFood), fastFood ? 1 : width / 1.2);
 
@@ -369,7 +369,7 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
         const mid = (span.t0 + span.t1) / 2;
         const half = Math.min(width * 0.46, 3.4) / span.len;
         pushQuad(sp, sn, su, [at(mid - half, 0.06, top + 0.15), at(mid + half, 0.06, top + 0.15), at(mid + half, 0.06, top + 1.5), at(mid - half, 0.06, top + 1.5)], n, UNIT);
-        g.add(new THREE.Mesh(geometry(sp, sn, su), new THREE.MeshLambertMaterial({ map: signTexture(p.category) })));
+        g.add(new THREE.Mesh(geometry(sp, sn, su), new THREE.MeshLambertMaterial({ map: signTexture(p.category, color) })));
       }
       storefronts.push({ place: p, point: at((span.t0 + span.t1) / 2, depth / 2, top - drop / 2) });
     }

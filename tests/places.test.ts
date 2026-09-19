@@ -80,3 +80,17 @@ describe('validatePlaces: style and lot', () => {
     expect(errs).toContain('driveThru');
   });
 });
+
+describe('place color', () => {
+  it('uses the place color when set, else the category color', async () => {
+    const { placeColor } = await import('../src/places.ts');
+    const { CATEGORIES } = await import('../src/data/categories.ts');
+    expect(placeColor({ category: 'restaurant' })).toBe(CATEGORIES.restaurant.color);
+    expect(placeColor({ category: 'restaurant', color: '#2f8a4f' })).toBe('#2f8a4f');
+  });
+  it('rejects a malformed color', () => {
+    const p = structuredClone(fixtures[0]);
+    p.color = 'green';
+    expect(validatePlaces([p]).join()).toContain('color');
+  });
+});

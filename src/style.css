@@ -426,22 +426,6 @@ body {
 .build-panel .row > label {
   flex: 1;
 }
-.build-panel .wall {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto auto;
-  gap: 6px;
-  margin: 2px 0 10px;
-  font-weight: 800;
-  font-size: 13px;
-}
-.build-panel .wall button:not(.link-btn) {
-  padding: 2px 8px;
-}
-.build-panel .wall-name {
-  color: #ffe066;
-  font-weight: 700;
-  font-size: 12px;
-}
 .build-panel button:not(.link-btn):not(.round-btn) {
   border-radius: 8px;
   border: 2px solid var(--panel-border);

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { CATEGORIES } from '../data/categories.ts';
 import { distToSegment, pointInRing, projectOnSegment, type Projection, type Pt } from '../geo.ts';
-import type { Place } from '../places.ts';
+import { placeColor, type Place } from '../places.ts';
 import { COLORS } from './ground.ts';
 import { canvasTexture, fitFont, panelEdge, twoSidedPanel } from './panel.ts';
 import { groundMaterial, type FadeUniforms } from './shaders.ts';
@@ -51,7 +50,7 @@ function ground(geo: THREE.BufferGeometry, mat: THREE.Material, order: number) {
 }
 
 function poleSignTexture(place: Place, driveThru: boolean) {
-  const color = CATEGORIES[place.category].color;
+  const color = placeColor(place);
   return canvasTexture(512, 256, (ctx) => {
     ctx.fillStyle = '#f6f2e6';
     ctx.fillRect(0, 0, 512, 256);
@@ -77,7 +76,7 @@ function poleSignTexture(place: Place, driveThru: boolean) {
 }
 
 function menuTexture(place: Place) {
-  const color = CATEGORIES[place.category].color;
+  const color = placeColor(place);
   return canvasTexture(128, 96, (ctx) => {
     ctx.fillStyle = '#2b2f36';
     ctx.fillRect(0, 0, 128, 96);
