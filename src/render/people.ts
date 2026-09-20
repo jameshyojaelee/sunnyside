@@ -7,7 +7,11 @@ import { canvasTexture } from './panel.ts';
 
 const SPEED = 1.25; // m/s, a relaxed walking pace
 const STRIDE = 0.78; // meters per step, sets how fast the legs swing
-const PAIR_GAP = 0.34; // half the distance between the two of them
+const PAIR_GAP = 0.48; // half the distance between the two of them
+// Real heights: 5'9" and 5'4". Drawn at twice that, because two specks at true scale are almost
+// impossible to spot next to a six-story building; the two of them keep their proportions.
+const REAL_HEIGHTS: [number, number] = [1.753, 1.626];
+const FIGURE_SCALE = 2;
 
 interface Edge {
   /** Index of the node at the far end. */
@@ -240,12 +244,12 @@ export function buildPeople(data: MapData, shadowMaterial: THREE.Material): Peop
   const graph = buildGraph(data);
   const face = faceTexture();
   const looks: Look[] = [
-    { skin: '#e3ab7d', hair: '#151216', outfit: '#2f6f8f', dress: false, longHair: false, height: 1.72 },
-    { skin: '#f1cdb4', hair: '#171319', outfit: '#d2566f', dress: true, longHair: true, height: 1.62 },
+    { skin: '#e3ab7d', hair: '#151216', outfit: '#2f6f8f', dress: false, longHair: false, height: REAL_HEIGHTS[0] * FIGURE_SCALE },
+    { skin: '#f1cdb4', hair: '#171319', outfit: '#d2566f', dress: true, longHair: true, height: REAL_HEIGHTS[1] * FIGURE_SCALE },
   ];
   const figures = looks.map((l) => buildFigure(l, face));
   const shadows = figures.map(() => {
-    const m = new THREE.Mesh(new THREE.CircleGeometry(0.3, 10), shadowMaterial);
+    const m = new THREE.Mesh(new THREE.CircleGeometry(0.3 * FIGURE_SCALE, 10), shadowMaterial);
     m.userData.noPick = true;
     group.add(m);
     return m;
