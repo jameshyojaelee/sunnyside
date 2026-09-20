@@ -4,6 +4,7 @@ import { awningSpan, nearestEdge, separateSpans } from '../facade.ts';
 import { distToRing, pointInRing, ringCentroid, type Pt } from '../geo.ts';
 import { placeColor, type Place } from '../places.ts';
 import { buildLot, pickupSpot, type Lot, type LotEnv } from './lot.ts';
+import { fitFont } from './panel.ts';
 import { buildStorefront, facadeWallTexture, wallT, type FacadeFront } from './storefront.ts';
 import { geometry, pushQuad, UNIT } from './quads.ts';
 import { buildStrips } from './strips.ts';
@@ -90,6 +91,28 @@ function awningTexture(color: string, solid = false) {
   );
 }
 
+/** Awning top lettered with the shop's name: one flat color with the name across the slope. */
+function awningNameTexture(color: string, text: string, textColor: string, width: number, depth: number) {
+  const W = 512;
+  const H = Math.max(48, Math.round((W * depth) / Math.max(1, width)));
+  return cachedTexture(
+    `awningName:${color}:${text}:${textColor}:${H}`,
+    (ctx) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillRect(0, 0, W, 3);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      fitFont(ctx, text, W * 0.88, H * 0.55);
+      ctx.fillStyle = textColor;
+      ctx.fillText(text, W / 2, H / 2 + H * 0.04);
+    },
+    W,
+    H,
+  );
+}
+
 /** Fast-food wall bay: glass storefront below, cream stucco, a colored band along the roofline. */
 function fastFoodTexture(color: string) {
   return cachedTexture(
@@ -152,6 +175,15 @@ function drawPictogram(ctx: CanvasRenderingContext2D, category: Category, cx: nu
       ctx.lineTo(cx - 2, cy + 5);
       ctx.moveTo(cx + 2, cy - 5);
       ctx.lineTo(cx + 5, cy + 4);
+      ctx.stroke();
+      return;
+    case 'dessert':
+      // Ice cream cone: a scoop over a tapering cone.
+      ctx.arc(cx, cy - 3, 6, Math.PI, 0);
+      ctx.lineTo(cx + 5, cy - 2);
+      ctx.lineTo(cx, cy + 9);
+      ctx.lineTo(cx - 5, cy - 2);
+      ctx.closePath();
       ctx.stroke();
       return;
     case 'restaurant':
@@ -306,7 +338,7 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     g.add(new THREE.Mesh(buildStrips([{ p: closed, hw: 0.35 }], h + 0.03, 6), new THREE.MeshBasicMaterial({ color: '#d8d0bf' })));
 
     /** Glass window plus a sloped canopy (and front valance) on wall `edge` between t0 and t1. */
-    const addAwning = (edge: number, t0: number, t1: number, top: number, depth: number, drop: number, tex: THREE.Texture, stripes: number) => {
+    const addAwning = (edge: number, t0: number, t1: number, top: number, depth: number, drop: number, tex: THREE.Texture, stripes: number, lettered?: THREE.Texture) => {
       const a = ring[edge];
       const b = ring[(edge + 1) % ring.length];
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -331,7 +363,24 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
         [stripes, 1],
         [0, 1],
       ];
-      pushQuad(ap, an, au, [at(t0, 0.02, top), at(t1, 0.02, top), at(t1, depth, top - drop), at(t0, depth, top - drop)], slopeN, uv);
+      const slope = [at(t0, 0.02, top), at(t1, 0.02, top), at(t1, depth, top - drop), at(t0, depth, top - drop)];
+      if (lettered) {
+        // The name goes on the sloped top, the one face big enough to read from this camera angle;
+        // it gets its own mesh so the lettering spans the awning exactly once.
+        const lp: number[] = [];
+        const ln: number[] = [];
+        const lu: number[] = [];
+        // v is flipped from UNIT because the slope's first edge is its high (back) edge.
+        pushQuad(lp, ln, lu, slope, slopeN, [
+          [0, 1],
+          [1, 1],
+          [1, 0],
+          [0, 0],
+        ]);
+        g.add(new THREE.Mesh(geometry(lp, ln, lu), new THREE.MeshLambertMaterial({ map: lettered, side: THREE.DoubleSide })));
+      } else {
+        pushQuad(ap, an, au, slope, slopeN, uv);
+      }
       pushQuad(ap, an, au, [at(t0, depth, top - drop - 0.35), at(t1, depth, top - drop - 0.35), at(t1, depth, top - drop), at(t0, depth, top - drop)], n, uv);
       g.add(new THREE.Mesh(geometry(ap, an, au), new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide })));
       return { at, n, width };
@@ -367,7 +416,9 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
       const depth = fastFood ? 1.2 : 1.4;
       const color = placeColor(p);
       const width = (span.t1 - span.t0) * span.len;
-      const { at, n } = addAwning(edge, span.t0, span.t1, top, depth, drop, awningTexture(color, fastFood), fastFood ? 1 : width / 1.2);
+      const solid = fastFood || !!p.awning?.solid;
+      const lettered = p.awning?.text ? awningNameTexture(color, p.awning.text, p.awning.textColor ?? '#ffffff', width, depth) : undefined;
+      const { at, n } = addAwning(edge, span.t0, span.t1, top, depth, drop, awningTexture(color, solid), solid ? 1 : width / 1.2, lettered);
 
       // Sign board above the awning when the building is tall enough (fast food uses its pole sign).
       if (!fastFood && top + 1.6 < h - 0.2) {

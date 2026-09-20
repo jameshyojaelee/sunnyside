@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { distToSegment, pointInRing, projectOnSegment, rng, type Projection, type Pt } from '../geo.ts';
-import { placeColor, type Place } from '../places.ts';
+import { placeColor, type Place, type PlaceLot } from '../places.ts';
+import { shadowGeometry } from './buildings.ts';
 import { COLORS } from './ground.ts';
 import { canvasTexture, fitFont, panelEdge, twoSidedPanel } from './panel.ts';
 import { groundMaterial, type FadeUniforms } from './shaders.ts';
+import { geometry, pushQuad, UNIT } from './quads.ts';
 import { buildStrips } from './strips.ts';
 
 export interface LotEnv {
@@ -31,6 +33,8 @@ export interface Lot {
 }
 
 const POLE_TOP = 9.6;
+const CANOPY_DECK = 0.9; // thickness of the canopy slab
+const PUMP_H = 1.35;
 const STALL_W = 2.7; // parking stall width
 const CAR_COLORS = ['#c9ccd1', '#2d2f33', '#f2f2ee', '#8e1f24', '#2c4f86', '#6e7479', '#a8a18f', '#3f6b4a'];
 const SIGN_H = 2.6;
@@ -223,6 +227,8 @@ export function buildLot(place: Place, env: LotEnv): Lot | null {
     );
   }
 
+  if (lot.fuel) buildFuel(lot.fuel, placeColor(place), env, out);
+
   out.blocksTree = (x, y) =>
     paved.some((r) => pointInRing(x, y, r)) ||
     walks.some((r) => pointInRing(x, y, r)) ||
@@ -249,6 +255,89 @@ function mergeAll(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   m.setIndex(idx);
   return m;
+}
+
+
+/** Gas station: a canopy slab on four columns, with pumps on low islands underneath. */
+function buildFuel(fuel: NonNullable<PlaceLot['fuel']>, color: string, env: LotEnv, out: Lot) {
+  const ring = fuel.canopy.map((p) => env.proj.toLocal(...p));
+  const clear = fuel.height ?? 4.8;
+  const white = new THREE.MeshLambertMaterial({ color: '#f2f1ec' });
+  const fascia = new THREE.MeshLambertMaterial({ color: fuel.fascia ?? color });
+  const steel = new THREE.MeshLambertMaterial({ color: '#c9c8c2' });
+  const center: Pt = [ring.reduce((t, p) => t + p[0], 0) / ring.length, ring.reduce((t, p) => t + p[1], 0) / ring.length];
+  // Underside and top of the slab, plus a colored band all the way around its edge.
+  // Keeps its normals (unlike the flat ground pieces) so the slab is lit, not flat gray.
+  const slab = (z: number, up: boolean) => {
+    const g = new THREE.ShapeGeometry(new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x, y))));
+    g.deleteAttribute('uv');
+    g.translate(0, 0, z);
+    if (!up) {
+      const n = g.getAttribute('normal');
+      for (let i = 0; i < n.count; i++) n.setZ(i, -1);
+    }
+    return g;
+  };
+  out.objects.push(new THREE.Mesh(slab(clear, false), white), new THREE.Mesh(slab(clear + CANOPY_DECK, true), white));
+  const pos: number[] = [];
+  const nrm: number[] = [];
+  const uv: number[] = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % ring.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const n = new THREE.Vector3((b[1] - a[1]) / len, -(b[0] - a[0]) / len, 0);
+    pushQuad(
+      pos,
+      nrm,
+      uv,
+      [
+        new THREE.Vector3(a[0], a[1], clear),
+        new THREE.Vector3(b[0], b[1], clear),
+        new THREE.Vector3(b[0], b[1], clear + CANOPY_DECK),
+        new THREE.Vector3(a[0], a[1], clear + CANOPY_DECK),
+      ],
+      n,
+      UNIT,
+    );
+  }
+  out.objects.push(new THREE.Mesh(geometry(pos, nrm, uv), fascia));
+  // Columns, one per corner, pulled in from the edge.
+  for (const c of ring) {
+    const x = c[0] + (center[0] - c[0]) * 0.16;
+    const y = c[1] + (center[1] - c[1]) * 0.16;
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, clear), steel);
+    col.position.set(x, y, clear / 2);
+    out.objects.push(col);
+    out.shadows.push(new THREE.Mesh(buildStrips([{ p: [x, y, x + env.sunOffset.x * clear, y + env.sunOffset.y * clear], hw: 0.3 }], 0, 6), env.shadowMaterial));
+  }
+  out.shadows.push(new THREE.Mesh(shadowGeometry(ring, env.sunOffset.clone().multiplyScalar(clear)), env.shadowMaterial));
+
+  // Pumps: a low island, the pump body and a lighter display head.
+  const along = new THREE.Vector2(ring[1][0] - ring[0][0], ring[1][1] - ring[0][1]).normalize();
+  const yaw = Math.atan2(along.y, along.x);
+  const bodyMat = new THREE.MeshLambertMaterial({ color: '#d7d5cd' });
+  const headMat = new THREE.MeshLambertMaterial({ color: '#3d4045' });
+  const islandMat = new THREE.MeshLambertMaterial({ color: '#b9b6ad' });
+  for (const p of fuel.pumps) {
+    const [x, y] = env.proj.toLocal(...p);
+    const island = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.2, 0.18), islandMat);
+    island.position.set(x, y, 0.09);
+    island.rotation.z = yaw;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, PUMP_H), bodyMat);
+    body.position.set(x, y, 0.18 + PUMP_H / 2);
+    body.rotation.z = yaw;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.6, 0.45), headMat);
+    head.position.set(x, y, 0.18 + PUMP_H + 0.2);
+    head.rotation.z = yaw;
+    out.objects.push(island, body, head);
+    out.shadows.push(
+      new THREE.Mesh(
+        buildStrips([{ p: [x, y, x + env.sunOffset.x * PUMP_H, y + env.sunOffset.y * PUMP_H], hw: 0.7 }], 0, 6),
+        env.shadowMaterial,
+      ),
+    );
+  }
 }
 
 /** Calls f every `step` meters along a polyline with the unit direction there. */

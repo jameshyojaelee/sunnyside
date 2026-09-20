@@ -7,6 +7,7 @@ import type { MapData } from './mapdata.ts';
 import { validatePlaces, type Place } from './places.ts';
 import { PlacesController } from './placesController.ts';
 import { buildArch } from './render/arch.ts';
+import { buildPeople } from './render/people.ts';
 import { buildTrains } from './render/trains.ts';
 import { PlaceCard } from './ui/card.ts';
 import { setupMusic } from './ui/music.ts';
@@ -99,6 +100,10 @@ async function start() {
   const trains = buildTrains(data.viaduct, reducedMotion);
   app.scene.add(trains.group);
   if (!reducedMotion) app.addTicker(trains.update);
+  // The two of us, out for a walk: a new starting corner on every load.
+  const people = buildPeople(data, app.shadowMaterial);
+  app.scene.add(people.group);
+  if (!reducedMotion) app.addTicker(people.update);
   const list = new PlacesList(ui, (id) => controller.selectPlace(id));
   const about = new AboutPanel(ui);
   left.append(

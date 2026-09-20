@@ -29,6 +29,8 @@ export interface Place {
   facadeEdge?: number;
   /** Awning and sign color like "#2f8a4f"; defaults to the category's color. */
   color?: string;
+  /** Awning look: solid cloth instead of the default stripes, with the name on the front valance. */
+  awning?: PlaceAwning;
   /** Building look. Default: windows on every floor and a striped awning. */
   style?: PlaceStyle;
   /** Things around the building, all [lon, lat]. */
@@ -62,6 +64,15 @@ export interface PlaceFacade {
   corner?: { lines: string[]; color: string; bg: string };
 }
 
+export interface PlaceAwning {
+  /** One flat color instead of the alternating stripes. */
+  solid?: boolean;
+  /** Lettering across the awning's front valance, e.g. the shop's name. */
+  text?: string;
+  /** Letter color (default white). */
+  textColor?: string;
+}
+
 export const PLACE_STYLES = ['fast-food'] as const;
 export type PlaceStyle = (typeof PLACE_STYLES)[number];
 
@@ -74,8 +85,21 @@ export interface PlaceLot {
   driveThru?: Array<[number, number]>;
   /** Base of a tall sign on a pole. */
   poleSign?: [number, number];
+  /** A gas station on the lot: a canopy on columns over pump islands. */
+  fuel?: PlaceFuel;
   /** Rows of parking stalls from a to b; stalls extend to the left (side 1) or right (-1) of a->b. */
   stallRows?: Array<{ a: [number, number]; b: [number, number]; side: 1 | -1; depth?: number; fill?: number }>;
+}
+
+export interface PlaceFuel {
+  /** The canopy's four corners, in order. */
+  canopy: Array<[number, number]>;
+  /** One pump per position, under the canopy. */
+  pumps: Array<[number, number]>;
+  /** Clear height under the canopy in meters (default 4.8). */
+  height?: number;
+  /** Color of the band around the canopy edge (default the place color). */
+  fascia?: string;
 }
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -137,6 +161,15 @@ export function validatePlaces(input: unknown): string[] {
     if (!pointInRing(sx, sy, ring) && distToRing(sx, sy, ring) > 3) err('storefront must be inside the building (or within 3 m)');
     if (p.facadeEdge !== undefined && !(Number.isInteger(p.facadeEdge) && p.facadeEdge >= 0 && p.facadeEdge < p.footprint.length))
       err('facadeEdge must be a wall index');
+    if (p.awning !== undefined) {
+      const a = p.awning as PlaceAwning;
+      if (typeof a !== 'object' || a === null) err('awning must be an object');
+      else {
+        if (a.solid !== undefined && typeof a.solid !== 'boolean') err('awning.solid must be true or false');
+        if (a.text !== undefined && (typeof a.text !== 'string' || !a.text.trim())) err('awning.text must be text');
+        if (a.textColor !== undefined && !/^#[0-9a-f]{6}$/i.test(String(a.textColor))) err('awning.textColor must look like "#ffffff"');
+      }
+    }
     if (p.style !== undefined && !PLACE_STYLES.includes(p.style)) err(`style must be one of ${PLACE_STYLES.join(', ')}`);
     if (p.color !== undefined && (typeof p.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(p.color))) err('color must look like "#2f8a4f"');
     if (p.facade !== undefined) {
@@ -171,6 +204,13 @@ export function validatePlaces(input: unknown): string[] {
           !(Array.isArray(lot.stallRows) && lot.stallRows.every((r) => isLonLat(r.a) && isLonLat(r.b) && (r.side === 1 || r.side === -1)))
         )
           err('lot.stallRows need a, b ([lon, lat]) and side (1 or -1)');
+        if (lot.fuel !== undefined) {
+          const f = lot.fuel as PlaceFuel;
+          if (!(Array.isArray(f.canopy) && f.canopy.length === 4 && f.canopy.every(isLonLat))) err('lot.fuel.canopy must be 4 [lon, lat] corners');
+          if (!(Array.isArray(f.pumps) && f.pumps.length && f.pumps.every(isLonLat))) err('lot.fuel.pumps must be [lon, lat] points');
+          if (f.height !== undefined && !(typeof f.height === 'number' && f.height > 2 && f.height < 9)) err('lot.fuel.height must be 2-9 m');
+          if (f.fascia !== undefined && !/^#[0-9a-f]{6}$/i.test(String(f.fascia))) err('lot.fuel.fascia must look like "#c62a45"');
+        }
       }
     }
   });

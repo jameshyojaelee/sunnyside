@@ -1,5 +1,125 @@
 [
   {
+    "id": "7-eleven",
+    "name": "7-Eleven",
+    "category": "shop",
+    "description": "Immaculate Big Gulp",
+    "address": "42-02 Queens Blvd",
+    "visited": "2026-07-11",
+    "osmBuildingId": "w280355823",
+    "footprint": [
+      [
+        -73.9219355,
+        40.7429917
+      ],
+      [
+        -73.9217209,
+        40.7429665
+      ],
+      [
+        -73.921683,
+        40.7431516
+      ],
+      [
+        -73.9218122,
+        40.7431669
+      ],
+      [
+        -73.9219118,
+        40.7431112
+      ]
+    ],
+    "height": 6.8,
+    "storefront": [
+      -73.9218596,
+      40.7431399
+    ],
+    "facadeEdge": 3,
+    "facade": {
+      "wall": "#ece9e1",
+      "finish": "smooth",
+      "shopGlass": 3.0,
+      "cornice": "#d8d4c8",
+      "band": {
+        "color": "#1f7a45",
+        "text": "7-ELEVEN",
+        "textColor": "#ffffff",
+        "width": 9,
+        "height": 1.4
+      }
+    },
+    "lot": {
+      "paved": [
+        [
+          [
+            -73.9224062,
+            40.74306
+          ],
+          [
+            -73.9223564,
+            40.7433151
+          ],
+          [
+            -73.9216806,
+            40.7432306
+          ],
+          [
+            -73.9217292,
+            40.7429791
+          ],
+          [
+            -73.9219438,
+            40.7430034
+          ]
+        ]
+      ],
+      "poleSign": [
+        -73.922322,
+        40.7432648
+      ],
+      "fuel": {
+        "canopy": [
+          [
+            -73.9222905,
+            40.7431094
+          ],
+          [
+            -73.9220565,
+            40.7430802
+          ],
+          [
+            -73.9220334,
+            40.7431866
+          ],
+          [
+            -73.9222673,
+            40.7432158
+          ]
+        ],
+        "pumps": [
+          [
+            -73.9222204,
+            40.743128
+          ],
+          [
+            -73.9221151,
+            40.7431148
+          ],
+          [
+            -73.9222088,
+            40.7431812
+          ],
+          [
+            -73.9221035,
+            40.743168
+          ]
+        ],
+        "height": 4.9,
+        "fascia": "#1f7a45"
+      }
+    }
+  },
+  {
     "id": "ariyoshi",
     "name": "Ariyoshi",
     "category": "restaurant",
@@ -369,6 +489,65 @@
     }
   },
   {
+    "id": "parador-caleno",
+    "name": "Parador Caleño",
+    "category": "restaurant",
+    "description": "If you're in the mood for a heaping plate of assorted meats.",
+    "address": "45-07 47th Avenue",
+    "visited": "2026-07-20",
+    "osmBuildingId": "r3727225",
+    "unit": "parador-caleno",
+    "footprint": [
+      [
+        -73.919645,
+        40.7413317
+      ],
+      [
+        -73.9195631,
+        40.741322
+      ],
+      [
+        -73.9195473,
+        40.7413992
+      ],
+      [
+        -73.919569,
+        40.7414017
+      ],
+      [
+        -73.9195655,
+        40.7414188
+      ],
+      [
+        -73.9195439,
+        40.7414162
+      ],
+      [
+        -73.9195358,
+        40.7414555
+      ],
+      [
+        -73.9196177,
+        40.7414652
+      ]
+    ],
+    "height": 19,
+    "storefront": [
+      -73.9196022,
+      40.7413359
+    ],
+    "facadeEdge": 0,
+    "photos": [
+      "photos/parador-caleno/p1789919351706-0.jpg"
+    ],
+    "color": "#c02128",
+    "awning": {
+      "solid": true,
+      "text": "Parador Caleño",
+      "textColor": "#ffffff"
+    }
+  },
+  {
     "id": "pelicana-chicken",
     "name": "Pelicana Chicken",
     "category": "restaurant",
@@ -436,6 +615,43 @@
     ],
     "facadeEdge": 2,
     "visited": "2026-09-17"
+  },
+  {
+    "id": "ricas-pupusas-and-mas",
+    "name": "Ricas Pupusas & Mas",
+    "category": "restaurant",
+    "description": "Good pupusas. And they were playing Spider-man Homecoming dubbed in Spanish. Isn't that all you need? (I don't speak Spanish though)",
+    "address": "47-55 47th St",
+    "osmBuildingId": "w280348247",
+    "unit": "ricas-pupusas-and-mas",
+    "footprint": [
+      [
+        -73.9184102,
+        40.739304
+      ],
+      [
+        -73.9182513,
+        40.7392867
+      ],
+      [
+        -73.9182454,
+        40.7393179
+      ],
+      [
+        -73.9184041,
+        40.7393351
+      ]
+    ],
+    "height": 4.4,
+    "storefront": [
+      -73.918387,
+      40.7393203
+    ],
+    "facadeEdge": 3,
+    "color": "#1b63b4",
+    "awning": {
+      "solid": true
+    }
   },
   {
     "id": "shake-shack",
@@ -694,6 +910,38 @@
         }
       ]
     }
+  },
+  {
+    "id": "the-screen-door",
+    "name": "The Screen Door",
+    "category": "dessert",
+    "description": "Your standard, local ice cream shop.",
+    "osmBuildingId": "w241831643",
+    "footprint": [
+      [
+        -73.9154739,
+        40.7463878
+      ],
+      [
+        -73.9153224,
+        40.7463706
+      ],
+      [
+        -73.9152894,
+        40.7465394
+      ],
+      [
+        -73.9154429,
+        40.7465569
+      ]
+    ],
+    "unit": "the-screen-door",
+    "height": 18.4,
+    "storefront": [
+      -73.9154278,
+      40.746395
+    ],
+    "facadeEdge": 0
   },
   {
     "id": "wendy-s",

@@ -28,7 +28,7 @@
         var panel = document.getElementById('loading');
         if (!panel || panel.classList.contains('done')) return;
         document.getElementById('loading-line').textContent = window.__mapStarted
-          ? 'Still loading. Your connection may be very slow.'
+          ? 'Still loading (' + (window.__mapStage || 'starting') + '). This device may be running out of memory.'
           : 'This page could not start. Your browser may be holding an old copy of it.';
         var retry = document.getElementById('loading-retry');
         retry.hidden = false;

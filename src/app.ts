@@ -127,6 +127,18 @@ export class MapApp {
     this.animateTo({ azimuth: base.azimuth + dir * ROTATE_STEP }, 350);
   }
 
+  /** Turn the view freely, for a rotate drag or a sideways trackpad swipe. */
+  rotateBy(rad: number) {
+    this.setView({ azimuth: this.view.azimuth + rad });
+  }
+
+  /** Settle a free rotation on the nearest of the eight views. */
+  snapAzimuth() {
+    const a = this.view.azimuth;
+    const snapped = this.baseAzimuth + Math.round((a - this.baseAzimuth) / ROTATE_STEP) * ROTATE_STEP;
+    if (Math.abs(snapped - a) > 1e-4) this.animateTo({ azimuth: snapped }, 220);
+  }
+
   /** Zoom by a factor keeping the ground point under (sx, sy) fixed. */
   zoomAt(factor: number, sx: number, sy: number) {
     const [gx, gy] = this.screenToGround(sx, sy);

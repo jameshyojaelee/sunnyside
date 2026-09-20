@@ -19,7 +19,16 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
   let pan: { gx: number; gy: number } | null = null;
   let pinch: { dist: number; gx: number; gy: number; scale: number } | null = null;
   let down: { x: number; y: number; t: number; moved: boolean } | null = null;
+  let turn: { id: number; x: number } | null = null;
   let hoverFrame = 0;
+  let snapTimer = 0;
+
+  // Radians per pixel of sideways movement: a drag across a third of the screen is one 45 deg step.
+  const TURN_PER_PX = 0.005;
+  const snapSoon = () => {
+    clearTimeout(snapTimer);
+    snapTimer = window.setTimeout(() => app.snapAzimuth(), 260);
+  };
 
   const local = (e: PointerEvent | WheelEvent) => {
     const r = el.getBoundingClientRect();
@@ -44,6 +53,13 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
     el.setPointerCapture(e.pointerId);
     const p = local(e);
     pts.set(e.pointerId, p);
+    // Right-drag, or shift-drag with the left button, turns the view instead of panning.
+    if (pts.size === 1 && e.pointerType === 'mouse' && (e.button === 2 || e.shiftKey)) {
+      turn = { id: e.pointerId, x: p.x };
+      pan = null;
+      down = null;
+      return;
+    }
     if (pts.size === 1) {
       startPan(p);
       down = { ...p, t: performance.now(), moved: false };
@@ -63,6 +79,11 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
       return;
     }
     pts.set(e.pointerId, p);
+    if (turn && turn.id === e.pointerId) {
+      app.rotateBy((p.x - turn.x) * TURN_PER_PX);
+      turn.x = p.x;
+      return;
+    }
     if (down && Math.hypot(p.x - down.x, p.y - down.y) > TAP_SLOP) down.moved = true;
     if (pts.size === 1 && pan) {
       const [gx, gy] = app.screenToGround(p.x, p.y);
@@ -82,6 +103,11 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
     if (!pts.has(e.pointerId)) return;
     const p = local(e);
     pts.delete(e.pointerId);
+    if (turn && turn.id === e.pointerId) {
+      turn = null;
+      app.snapAzimuth();
+      return;
+    }
     if (pts.size === 1) {
       pinch = null;
       startPan([...pts.values()][0]);
@@ -94,6 +120,8 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
+  // The right button turns the view, so it must not open the browser menu.
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
   el.addEventListener('pointerleave', (e) => {
     if (e.pointerType === 'mouse' && !pts.size) h.onLeave?.();
   });
@@ -104,6 +132,16 @@ export function attachInput(app: MapApp, el: HTMLElement, h: InputHandlers): voi
       e.preventDefault();
       const p = local(e);
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
+      // Two-finger sideways swipe, or shift + wheel (which some browsers report as deltaX), turns
+      // the view; it settles on the nearest of the eight views once the swipe stops.
+      if (!e.ctrlKey && (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5)) {
+        const d = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+        if (d) {
+          app.rotateBy(-d * unit * 0.004);
+          snapSoon();
+        }
+        return;
+      }
       // Trackpad pinch arrives as ctrl+wheel with small deltas; treat it more strongly.
       const k = e.ctrlKey ? 0.01 : 0.0018;
       app.zoomAt(Math.exp(-e.deltaY * unit * k), p.x, p.y);
