@@ -244,8 +244,8 @@ export function buildPeople(data: MapData, shadowMaterial: THREE.Material): Peop
   const graph = buildGraph(data);
   const face = faceTexture();
   const looks: Look[] = [
-    { skin: '#e3ab7d', hair: '#151216', outfit: '#2f6f8f', dress: false, longHair: false, height: REAL_HEIGHTS[0] * FIGURE_SCALE },
-    { skin: '#f1cdb4', hair: '#171319', outfit: '#d2566f', dress: true, longHair: true, height: REAL_HEIGHTS[1] * FIGURE_SCALE },
+    { skin: '#f3d6ba', hair: '#151216', outfit: '#2f6f8f', dress: false, longHair: false, height: REAL_HEIGHTS[0] * FIGURE_SCALE },
+    { skin: '#fce8de', hair: '#171319', outfit: '#d2566f', dress: true, longHair: true, height: REAL_HEIGHTS[1] * FIGURE_SCALE },
   ];
   const figures = looks.map((l) => buildFigure(l, face));
   const shadows = figures.map(() => {
