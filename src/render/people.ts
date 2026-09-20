@@ -229,6 +229,110 @@ function buildFigure(look: Look, face: THREE.Texture): Figure {
   return { group: g, legs, arms, body };
 }
 
+
+// ---- The cat ----------------------------------------------------------------------------------
+
+const CAT_LAG = 2.2; // meters behind us it trots
+const CAT_STRIDE = 0.45;
+const HOP_TIME = 0.55; // seconds in the air
+const CREAM = '#fdf4e2';
+const CREAM_DARK = '#f0ddbe';
+
+/** Round eyes, a small nose and whiskers, for the front of the cat's face. */
+function catFaceTexture(): THREE.Texture {
+  return canvasTexture(64, 64, (ctx) => {
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.fillStyle = '#3b3129';
+    ctx.beginPath();
+    ctx.arc(22, 27, 5, 0, Math.PI * 2);
+    ctx.arc(42, 27, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#c98a86';
+    ctx.beginPath();
+    ctx.moveTo(32, 38);
+    ctx.lineTo(28, 34);
+    ctx.lineTo(36, 34);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(80,66,54,0.8)';
+    ctx.lineWidth = 2;
+    for (const [x0, x1, y] of [
+      [2, 20, 36],
+      [2, 20, 42],
+      [44, 62, 36],
+      [44, 62, 42],
+    ]) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x1, y);
+      ctx.stroke();
+    }
+  });
+}
+
+interface Cat {
+  group: THREE.Group;
+  body: THREE.Object3D;
+  legs: THREE.Object3D[];
+  tail: THREE.Object3D;
+}
+
+/** A cream British Shorthair: round face, round body, short thick legs. Faces its own +X. */
+function buildCat(scale: number): Cat {
+  const g = new THREE.Group();
+  const body = new THREE.Object3D();
+  g.add(body);
+  const k = scale;
+  const fur = new THREE.MeshLambertMaterial({ color: CREAM });
+  const furDark = new THREE.MeshLambertMaterial({ color: CREAM_DARK });
+
+  const trunk = new THREE.Mesh(new THREE.SphereGeometry(0.16 * k, 12, 10), fur);
+  trunk.scale.set(1.75, 1.05, 1.0);
+  trunk.position.set(-0.04 * k, 0, 0.27 * k);
+  body.add(trunk);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115 * k, 12, 10), fur);
+  head.position.set(0.25 * k, 0, 0.36 * k);
+  body.add(head);
+  const cheeks = new THREE.Mesh(new THREE.SphereGeometry(0.1 * k, 10, 8), fur);
+  cheeks.scale.set(0.8, 1.15, 0.8);
+  cheeks.position.set(0.26 * k, 0, 0.32 * k);
+  body.add(cheeks);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.045 * k, 0.07 * k, 6), furDark);
+    ear.position.set(0.23 * k, side * 0.07 * k, 0.45 * k);
+    body.add(ear);
+  }
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.17 * k, 0.17 * k),
+    new THREE.MeshBasicMaterial({ map: catFaceTexture(), transparent: true, alphaTest: 0.3, depthWrite: false }),
+  );
+  face.position.set(0.355 * k, 0, 0.36 * k);
+  face.rotation.set(Math.PI / 2, 0, Math.PI / 2);
+  body.add(face);
+
+  const legs: THREE.Object3D[] = [];
+  for (const fx of [0.16, -0.16]) {
+    for (const sy of [-0.09, 0.09]) {
+      const pivot = new THREE.Object3D();
+      pivot.position.set(fx * k, sy * k, 0.2 * k);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06 * k, 0.06 * k, 0.2 * k), fur);
+      leg.position.z = -0.1 * k;
+      pivot.add(leg);
+      g.add(pivot);
+      legs.push(pivot);
+    }
+  }
+  const tail = new THREE.Object3D();
+  tail.position.set(-0.29 * k, 0, 0.3 * k);
+  const tailMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03 * k, 0.045 * k, 0.28 * k, 7), fur);
+  tailMesh.position.y = 0.14 * k;
+  tail.add(tailMesh);
+  tail.rotation.z = Math.PI / 2;
+  tail.rotation.x = -0.5;
+  g.add(tail);
+  return { group: g, body, legs, tail };
+}
+
 export interface People {
   group: THREE.Group;
   update(now: number): void;
@@ -258,6 +362,18 @@ export function buildPeople(data: MapData, shadowMaterial: THREE.Material): Peop
   for (const o of group.children) o.frustumCulled = false;
 
   const walker = graph.xy.length ? new Walker(graph) : null;
+  const cat = buildCat(0.5 * FIGURE_SCALE);
+  group.add(cat.group);
+  cat.group.frustumCulled = false;
+  const catShadow = new THREE.Mesh(new THREE.CircleGeometry(0.26 * FIGURE_SCALE, 10), shadowMaterial);
+  catShadow.userData.noPick = true;
+  catShadow.frustumCulled = false;
+  group.add(catShadow);
+  // Where we have been, so the cat can trot along the same line a couple of meters back.
+  const trail: Array<{ x: number; y: number; dx: number; dy: number; d: number }> = [];
+  let hopUntil = 0;
+  let nextHop = 4 + Math.random() * 5;
+  let clock = 0;
   let last = 0;
 
   const place = () => {
@@ -283,6 +399,24 @@ export function buildPeople(data: MapData, shadowMaterial: THREE.Material): Peop
       f.body.position.z = Math.abs(Math.sin(phase)) * 0.045;
       shadows[i].position.set(x, y, 0);
     });
+
+    // The cat walks our own path, CAT_LAG meters back, and hops every few seconds.
+    trail.push({ x: p.x, y: p.y, dx: p.dx, dy: p.dy, d: walker.distance });
+    while (trail.length > 2 && walker.distance - trail[1].d > CAT_LAG) trail.shift();
+    const spot = trail[0];
+    const hop = clock < hopUntil ? Math.sin(((hopUntil - clock) / HOP_TIME) * Math.PI) : 0;
+    const gait = (walker.distance / CAT_STRIDE) * Math.PI;
+    cat.group.position.set(spot.x, spot.y, hop * 0.5 * FIGURE_SCALE);
+    cat.group.rotation.z = Math.atan2(spot.dy, spot.dx);
+    cat.group.rotation.y = -hop * 0.35;
+    cat.legs.forEach((leg, i) => {
+      // Diagonal pairs swing together; in mid-air all four tuck up.
+      leg.rotation.y = hop ? 0.6 * hop : Math.sin(gait + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.4;
+    });
+    cat.body.position.z = Math.abs(Math.sin(gait)) * 0.02 * FIGURE_SCALE;
+    cat.tail.rotation.x = -0.5 - hop * 0.7 + Math.sin(gait * 0.5) * 0.15;
+    catShadow.position.set(spot.x, spot.y, 0);
+    catShadow.scale.setScalar(1 - hop * 0.3);
   };
   place();
 
@@ -292,6 +426,11 @@ export function buildPeople(data: MapData, shadowMaterial: THREE.Material): Peop
       if (!walker) return;
       const dt = last ? Math.min(0.2, (now - last) / 1000) : 0;
       last = now;
+      clock += dt;
+      if (clock > nextHop) {
+        hopUntil = clock + HOP_TIME;
+        nextHop = clock + HOP_TIME + 4 + Math.random() * 6;
+      }
       walker.step(dt);
       place();
     },

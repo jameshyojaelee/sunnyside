@@ -11,7 +11,7 @@ import { buildViaduct } from './render/viaduct.ts';
 // Colors are authored as final screen values (Sims-era look), so turn off color management.
 THREE.ColorManagement.enabled = false;
 
-const MAX_SCALE = 12; // px per meter at closest zoom
+const MAX_SCALE = 26; // px per meter at closest zoom
 const ROTATE_STEP = Math.PI / 4;
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
