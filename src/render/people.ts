@@ -7,7 +7,13 @@ import { canvasTexture } from './panel.ts';
 
 const SPEED = 1.25; // m/s, a relaxed walking pace
 const STRIDE = 0.78; // meters per step, sets how fast the legs swing
-const PAIR_GAP = 0.48; // half the distance between the two of them
+const PAIR_GAP = 0.48;
+// Home: 45-07 45th Street, in local meters. Wherever they start, they head back this way and then
+// potter about the blocks around it instead of drifting off to the edge of the map.
+export const HOME: Pt = [708.3, 524.7];
+export const HOME_RADIUS = 220; // inside this they wander freely
+export const SPAWN_RADIUS = 500; // they appear somewhere random, but in the middle of things
+const HOMEWARD = 0.9; // chance of taking the corner that gets them closer, when they are far out // half the distance between the two of them
 // Real heights: 5'9" and 5'4". Drawn at twice that, because two specks at true scale are almost
 // impossible to spot next to a six-story building; the two of them keep their proportions.
 const REAL_HEIGHTS: [number, number] = [1.753, 1.626];
@@ -21,15 +27,17 @@ interface Edge {
   off: number;
 }
 
-interface Graph {
+export interface Graph {
   xy: Pt[];
   edges: Edge[][];
+  /** Walking distance from each corner back to HOME, so heading home never loops. */
+  toHome: number[];
   /** True inside the Sunnyside boundary. */
   inside(x: number, y: number): boolean;
 }
 
 /** Walkable sidewalk graph: ground-level road segments with both ends inside the boundary. */
-function buildGraph(data: MapData): Graph {
+export function buildGraph(data: MapData): Graph {
   const rings = data.boundary.map((poly) => {
     const flat = poly[0];
     const ring: Pt[] = [];
@@ -37,6 +45,70 @@ function buildGraph(data: MapData): Graph {
     return ring;
   });
   const inside = (x: number, y: number) => rings.some((r) => pointInRing(x, y, r));
+
+  // Street segments we would walk along.
+  interface Seg {
+    a: Pt;
+    b: Pt;
+    off: number;
+    /** Fractions along the segment where another street crosses it. */
+    cuts: number[];
+  }
+  const segs: Seg[] = [];
+  for (const r of data.roads) {
+    if (r.l !== 0 || r.sw <= 0) continue; // bridges, ramps and alleys with no sidewalk
+    const off = r.w / 2 + r.sw / 2;
+    for (let i = 2; i < r.p.length; i += 2) {
+      const a: Pt = [r.p[i - 2], r.p[i - 1]];
+      const b: Pt = [r.p[i], r.p[i + 1]];
+      if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 0.5 || !inside(...a) || !inside(...b)) continue;
+      segs.push({ a, b, off, cuts: [] });
+    }
+  }
+
+  // Crossings. The map data is simplified street by street, which drops the shared vertex where two
+  // streets meet, so without this the network would be a pile of streets that never touch and you
+  // could only ever pace up and down the one you started on.
+  const CELL = 60;
+  const grid = new Map<string, number[]>();
+  const cells = (s: Seg) => {
+    const out: string[] = [];
+    const x0 = Math.floor(Math.min(s.a[0], s.b[0]) / CELL);
+    const x1 = Math.floor(Math.max(s.a[0], s.b[0]) / CELL);
+    const y0 = Math.floor(Math.min(s.a[1], s.b[1]) / CELL);
+    const y1 = Math.floor(Math.max(s.a[1], s.b[1]) / CELL);
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) out.push(`${x}|${y}`);
+    return out;
+  };
+  segs.forEach((s, i) => {
+    for (const c of cells(s)) {
+      const list = grid.get(c);
+      if (list) list.push(i);
+      else grid.set(c, [i]);
+    }
+  });
+  const seen = new Set<number>();
+  segs.forEach((s, i) => {
+    seen.clear();
+    for (const c of cells(s))
+      for (const j of grid.get(c) ?? []) {
+        if (j <= i || seen.has(j)) continue;
+        seen.add(j);
+        const o = segs[j];
+        const rx = s.b[0] - s.a[0];
+        const ry = s.b[1] - s.a[1];
+        const sx = o.b[0] - o.a[0];
+        const sy = o.b[1] - o.a[1];
+        const denom = rx * sy - ry * sx;
+        if (Math.abs(denom) < 1e-9) continue; // parallel
+        const t = ((o.a[0] - s.a[0]) * sy - (o.a[1] - s.a[1]) * sx) / denom;
+        const u = ((o.a[0] - s.a[0]) * ry - (o.a[1] - s.a[1]) * rx) / denom;
+        if (t < 0 || t > 1 || u < 0 || u > 1) continue;
+        s.cuts.push(t);
+        o.cuts.push(u);
+      }
+  });
+
   const ids = new Map<string, number>();
   const xy: Pt[] = [];
   const edges: Edge[][] = [];
@@ -51,28 +123,96 @@ function buildGraph(data: MapData): Graph {
     }
     return i;
   };
-  for (const r of data.roads) {
-    if (r.l !== 0 || r.sw <= 0) continue; // bridges, ramps and alleys with no sidewalk
-    const off = r.w / 2 + r.sw / 2;
-    for (let i = 2; i < r.p.length; i += 2) {
-      const ax = r.p[i - 2];
-      const ay = r.p[i - 1];
-      const bx = r.p[i];
-      const by = r.p[i + 1];
+  for (const s of segs) {
+    const ts = [0, ...s.cuts, 1].sort((p, q) => p - q);
+    for (let i = 1; i < ts.length; i++) {
+      const t0 = ts[i - 1];
+      const t1 = ts[i];
+      const ax = s.a[0] + (s.b[0] - s.a[0]) * t0;
+      const ay = s.a[1] + (s.b[1] - s.a[1]) * t0;
+      const bx = s.a[0] + (s.b[0] - s.a[0]) * t1;
+      const by = s.a[1] + (s.b[1] - s.a[1]) * t1;
       const len = Math.hypot(bx - ax, by - ay);
-      if (len < 0.5 || !inside(ax, ay) || !inside(bx, by)) continue;
+      if (len < 0.5) continue;
       const a = node(ax, ay);
       const b = node(bx, by);
       if (a === b) continue;
-      edges[a].push({ to: b, len, off });
-      edges[b].push({ to: a, len, off });
+      edges[a].push({ to: b, len, off: s.off });
+      edges[b].push({ to: a, len, off: s.off });
     }
   }
-  return { xy, edges, inside };
+  // Everything reachable from the biggest piece. Trimming at the boundary and skipping alleys
+  // leaves a few stranded stubs; a walker spawned on one could only pace up and down it.
+  return withHomeDistances(largestComponent({ xy, edges, toHome: [], inside }));
+}
+
+/** The graph reduced to its biggest connected piece, so every corner is reachable from every other. */
+function largestComponent(g: Graph): Graph {
+  const comp = new Array(g.xy.length).fill(-1);
+  const sizes: number[] = [];
+  for (let i = 0; i < g.xy.length; i++) {
+    if (comp[i] >= 0) continue;
+    const id = sizes.length;
+    const stack = [i];
+    comp[i] = id;
+    let n = 0;
+    while (stack.length) {
+      const v = stack.pop()!;
+      n++;
+      for (const e of g.edges[v])
+        if (comp[e.to] < 0) {
+          comp[e.to] = id;
+          stack.push(e.to);
+        }
+    }
+    sizes.push(n);
+  }
+  const keep = sizes.indexOf(Math.max(...sizes));
+  const remap = new Map<number, number>();
+  const xy: Pt[] = [];
+  const edges: Edge[][] = [];
+  for (let i = 0; i < g.xy.length; i++)
+    if (comp[i] === keep) {
+      remap.set(i, xy.length);
+      xy.push(g.xy[i]);
+      edges.push([]);
+    }
+  for (const [from, to] of remap) for (const e of g.edges[from]) edges[to].push({ ...e, to: remap.get(e.to)! });
+  return { xy, edges, toHome: [], inside: g.inside };
+}
+
+/**
+ * Walking distance from every corner to the one nearest home (Dijkstra). Stepping to the neighbor
+ * with the smaller number always makes progress, which a straight-line "is it closer" test does
+ * not: on a one-way loop of blocks that test can send you round in circles forever.
+ */
+function withHomeDistances(g: Graph): Graph {
+  let start = 0;
+  let best = Infinity;
+  g.xy.forEach((p, i) => {
+    const d = Math.hypot(p[0] - HOME[0], p[1] - HOME[1]);
+    if (d < best) {
+      best = d;
+      start = i;
+    }
+  });
+  const dist = new Array<number>(g.xy.length).fill(Infinity);
+  const done = new Array<boolean>(g.xy.length).fill(false);
+  dist[start] = 0;
+  for (;;) {
+    let v = -1;
+    let d = Infinity;
+    for (let i = 0; i < dist.length; i++) if (!done[i] && dist[i] < d) ((d = dist[i]), (v = i));
+    if (v < 0) break;
+    done[v] = true;
+    for (const e of g.edges[v]) if (dist[v] + e.len < dist[e.to]) dist[e.to] = dist[v] + e.len;
+  }
+  g.toHome = dist;
+  return g;
 }
 
 /** Where one of us is right now: partway along an edge, out on the sidewalk. */
-class Walker {
+export class Walker {
   from = 0;
   to = 0;
   s = 0;
@@ -82,15 +222,18 @@ class Walker {
   distance = 0;
 
   private g: Graph;
+  /** Injectable so tests can walk the same streets twice. */
+  private rand: () => number;
 
-  constructor(g: Graph) {
+  constructor(g: Graph, rand: () => number = Math.random) {
     this.g = g;
-    // Somewhere new every load.
-    do {
-      this.from = Math.floor(Math.random() * g.xy.length);
-    } while (!g.edges[this.from].length);
-    this.take(g.edges[this.from][Math.floor(Math.random() * g.edges[this.from].length)]);
-    this.s = Math.random() * this.len;
+    this.rand = rand;
+    // Somewhere new every load, but within a few blocks of home rather than out on the rim.
+    const spots = g.xy.map((_, i) => i).filter((i) => g.edges[i].length && g.toHome[i] < SPAWN_RADIUS);
+    const pool = spots.length ? spots : g.xy.map((_, i) => i).filter((i) => g.edges[i].length);
+    this.from = pool[Math.floor(this.rand() * pool.length)];
+    this.take(g.edges[this.from][Math.floor(this.rand() * g.edges[this.from].length)]);
+    this.s = this.rand() * this.len;
   }
 
   private take(e: Edge) {
@@ -112,7 +255,14 @@ class Walker {
       if (!options.length) return;
       // Keep going rather than turning around, unless this is a dead end.
       const ahead = options.filter((e) => e.to !== back);
-      const pick = (ahead.length ? ahead : options)[Math.floor(Math.random() * (ahead.length || options.length))];
+      const choices = ahead.length ? ahead : options;
+      // Out in the far blocks, usually take the corner that leads home (even if that means turning
+      // back); once close to home, wander freely from corner to corner.
+      const far = this.g.toHome[here] > HOME_RADIUS;
+      const pick =
+        far && this.rand() < HOMEWARD
+          ? options.reduce((best, e) => (this.g.toHome[e.to] < this.g.toHome[best.to] ? e : best))
+          : choices[Math.floor(this.rand() * choices.length)];
       this.from = here;
       this.take(pick);
     }
