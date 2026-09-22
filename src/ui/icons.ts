@@ -19,6 +19,26 @@ export const ICONS = {
   link: svg('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
 };
 
+/** The day/night switch: sun on one side, moon on the other, and a knob that slides between them. */
+export function dayNightToggle(onChange: (night: boolean) => void): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.className = 'day-night';
+  b.type = 'button';
+  // The knob carries whichever one is on; the far end shows the other, dimmed.
+  b.innerHTML =
+    `<span class="knob"><span class="k-sun">${ICONS.sun}</span><span class="k-moon">${ICONS.moon}</span></span>` +
+    `<span class="sun">${ICONS.sun}</span><span class="moon">${ICONS.moon}</span>`;
+  b.setAttribute('aria-pressed', 'false');
+  const label = () => {
+    const night = b.getAttribute('aria-pressed') === 'true';
+    b.title = night ? 'Night: streetlights on. Switch to day' : 'Day. Switch to night';
+    b.setAttribute('aria-label', b.title);
+  };
+  label();
+  b.addEventListener('click', () => onChange(b.getAttribute('aria-pressed') !== 'true'));
+  return b;
+}
+
 export function roundButton(icon: string, label: string, onClick: () => void): HTMLButtonElement {
   const b = document.createElement('button');
   b.className = 'round-btn';

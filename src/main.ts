@@ -13,7 +13,7 @@ import { buildTrains } from './render/trains.ts';
 import { PlaceCard } from './ui/card.ts';
 import { setupMusic } from './ui/music.ts';
 import { AboutPanel, closeSidePanels, PlacesList } from './ui/panels.ts';
-import { ICONS, roundButton } from './ui/icons.ts';
+import { dayNightToggle, ICONS, roundButton } from './ui/icons.ts';
 
 const LOADING_LINES = ['Painting crosswalks…', 'Planting street trees…', 'Waiting for the 7 train…', 'Mowing Sunnyside Gardens…'];
 
@@ -107,11 +107,11 @@ async function start() {
   if (!reducedMotion) app.addTicker(people.update);
   // Day/night switch. The choice sticks, so the map opens the way you left it.
   const night = new NightMode(app);
-  const nightButton = roundButton(ICONS.moon, 'Turn on the streetlights', () => night.toggle());
+  const nightButton = dayNightToggle((on) => night.set(on));
   night.onChange((on) => {
-    nightButton.innerHTML = on ? ICONS.sun : ICONS.moon;
-    nightButton.title = nightButton.ariaLabel = on ? 'Back to daylight' : 'Turn on the streetlights';
-    nightButton.classList.toggle('on', on);
+    nightButton.setAttribute('aria-pressed', on ? 'true' : 'false');
+    nightButton.title = on ? 'Night: streetlights on. Switch to day' : 'Day. Switch to night';
+    nightButton.setAttribute('aria-label', nightButton.title);
     try {
       localStorage.setItem('sunnyside:night', on ? '1' : '0');
     } catch {

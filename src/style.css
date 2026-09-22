@@ -110,6 +110,115 @@ body {
   background: radial-gradient(circle at 35% 30%, #5fd46a, #1f7d2d 70%);
 }
 
+/* ---- Day / night toggle ------------------------------------------------------------------ */
+/* A pill with the sun on one side and the moon on the other; the knob slides to whichever is on. */
+.day-night {
+  position: relative;
+  height: 46px;
+  width: 84px;
+  padding: 0 6px;
+  border-radius: 23px;
+  border: 3px solid var(--sims-rim);
+  background: linear-gradient(180deg, #6ea8e6, #3f78c8);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.45),
+    inset 0 -3px 6px rgba(0, 0, 40, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition:
+    background 0.45s ease,
+    transform 0.12s ease;
+}
+.day-night[aria-pressed='true'] {
+  background: linear-gradient(180deg, #2c3a72, #141d47);
+}
+.day-night:hover {
+  filter: brightness(1.1);
+}
+.day-night:active {
+  transform: scale(0.96);
+}
+.day-night:focus-visible {
+  outline: 3px solid #ffe066;
+  outline-offset: 2px;
+}
+.day-night svg {
+  width: 20px;
+  height: 20px;
+  position: relative;
+  transition:
+    opacity 0.45s ease,
+    color 0.45s ease;
+}
+.day-night .sun {
+  color: #ffe9a8;
+  opacity: 0;
+}
+.day-night .moon {
+  color: #c9d6ff;
+  opacity: 0.6;
+}
+.day-night[aria-pressed='true'] .sun {
+  opacity: 0.6;
+}
+.day-night[aria-pressed='true'] .moon {
+  opacity: 0;
+}
+/* The pair on the knob itself: dark glyphs on the disc, one shown at a time. */
+.day-night .knob svg {
+  position: absolute;
+  inset: 7px;
+  width: 20px;
+  height: 20px;
+}
+.day-night .k-sun {
+  color: #8a5600;
+}
+.day-night .k-moon {
+  color: #2b3a72;
+  opacity: 0;
+}
+.day-night[aria-pressed='true'] .k-sun {
+  opacity: 0;
+}
+.day-night[aria-pressed='true'] .k-moon {
+  opacity: 1;
+}
+/* The knob: a warm sun disc by day, a pale moon disc at night. */
+.day-night .knob {
+  position: absolute;
+  z-index: 1;
+  top: 3px;
+  left: 3px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff5cf, #f7b733 70%);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 20, 0.5),
+    inset 0 -2px 4px rgba(120, 70, 0, 0.35);
+  transition:
+    transform 0.45s cubic-bezier(0.34, 1.3, 0.64, 1),
+    background 0.45s ease;
+}
+.day-night[aria-pressed='true'] .knob {
+  transform: translateX(40px);
+  background: radial-gradient(circle at 35% 30%, #ffffff, #b9c6ef 70%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 -2px 4px rgba(40, 50, 110, 0.4),
+    0 0 12px rgba(200, 216, 255, 0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  .day-night,
+  .day-night .knob,
+  .day-night svg {
+    transition: none;
+  }
+}
+
 /* ---- Panels ----------------------------------------------------------------------------- */
 .panel {
   background: linear-gradient(180deg, var(--panel-1), var(--panel-2));
@@ -219,6 +328,28 @@ body {
   .round-btn svg {
     width: 22px;
     height: 22px;
+  }
+  /* The switch shrinks with the buttons so the whole bar still fits a phone. */
+  .day-night {
+    width: 70px;
+    height: 40px;
+    padding: 0 5px;
+  }
+  .day-night .knob {
+    width: 30px;
+    height: 30px;
+  }
+  .day-night[aria-pressed='true'] .knob {
+    transform: translateX(32px);
+  }
+  .day-night .knob svg {
+    inset: 6px;
+    width: 18px;
+    height: 18px;
+  }
+  .day-night svg {
+    width: 17px;
+    height: 17px;
   }
   .btn-group {
     gap: 6px;
