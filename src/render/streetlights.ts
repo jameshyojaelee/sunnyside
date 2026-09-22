@@ -89,9 +89,10 @@ function glowTexture(): THREE.CanvasTexture {
   c.width = c.height = 128;
   const ctx = c.getContext('2d')!;
   const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,236,190,1)');
-  g.addColorStop(0.35, 'rgba(255,220,150,0.45)');
-  g.addColorStop(1, 'rgba(255,205,120,0)');
+  // Warm sodium-lamp amber rather than white: the middle stop is what the pools mostly read as.
+  g.addColorStop(0, 'rgba(255,225,163,1)');
+  g.addColorStop(0.35, 'rgba(255,193,104,0.45)');
+  g.addColorStop(1, 'rgba(255,164,60,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);

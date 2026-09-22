@@ -27,6 +27,11 @@ export interface MapData {
   thirdRails?: number[][];
   /** Center, plus the outline (r) or line (l) when OSM maps the shape, and height if known. */
   props?: Array<{ k: PropKind; x: number; y: number; r?: number[]; l?: number[]; h?: number }>;
+  /** Where the main-line railroads (LIRR, Amtrak) run up on an embankment: the whole elevated run
+   *  (p), the girder spans over streets within it (s), the banked stretches between those spans
+   *  (k), the ramps back down to the yard at each end (a), and whether the line carries a third
+   *  rail. Absent in data files built before September 2026. */
+  elevatedRail?: Array<{ p: number[]; s: number[][]; k: number[][]; a: number[][]; e?: 1 }>;
   /** Elevated subway tracks (7 train), whole, for the trains. */
   viaduct: number[][];
   /** The same tracks split by structure: concrete arches over Queens Blvd (33rd-48th St) or steel. */

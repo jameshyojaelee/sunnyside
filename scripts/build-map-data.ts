@@ -153,6 +153,9 @@ async function main() {
   const viaduct: number[][] = [];
   const areas: Array<{ k: AreaKind; r: Pt[][]; id?: string; s?: string }> = [];
   const viaductPieces: Pt[][] = [];
+  // Main-line railroad ways (LIRR, Amtrak), kept whole: where they run up on an embankment is
+  // worked out from their bridges once every piece is in.
+  const railWays: Array<{ pts: Pt[]; name: string; bridge: boolean; e: boolean }> = [];
 
   const classify = (t: Record<string, string>): AreaKind | null => {
     if (t.natural === 'water') return 'water';
@@ -205,12 +208,10 @@ async function main() {
         if (t.tunnel === 'yes' || t.tunnel === 'building_passage') continue;
         const layer = Number.parseInt(t.layer ?? '0', 10) || 0;
         const line = flat(simplifyLine(pts, 0.5));
-        if (t.railway === 'subway' && t.bridge && t.bridge !== 'no' && layer >= 1) viaductPieces.push(pts);
-        else {
-          rails.push(line);
-          // LIRR tracks carry a third rail (with a wooden cover board) beside the running rails.
-          if (t.railway === 'rail' && t.electrified === 'rail') thirdRails.push(flat(offsetLine(toPts(line), 1.45)));
-        }
+        const onBridge = !!t.bridge && t.bridge !== 'no' && layer >= 1;
+        if (t.railway === 'subway' && onBridge) viaductPieces.push(pts);
+        else if (t.railway === 'rail') railWays.push({ pts, name: t.name ?? '', bridge: onBridge, e: t.electrified === 'rail' });
+        else rails.push(line);
         continue;
       }
       const kind = classify(t);
@@ -227,6 +228,117 @@ async function main() {
 
   // Elevated tracks: join OSM pieces into whole tracks (trains run along them), then trim at the edge.
   for (const chain of stitchLines(viaductPieces)) viaduct.push(...clipNearBoundary(flat(chain), 40));
+
+  // Where the LIRR, the Port Washington Branch and Amtrak's Northeast Corridor leave the yard they
+  // climb onto an embankment and stay up, street after street, all the way across Woodside. OSM only
+  // tags the spans themselves as bridges, so each route is stitched back together and the short
+  // at-grade gaps between its bridges are treated as more embankment. Girders are drawn over the
+  // streets; the rest is bank, with a ramp at each end back down to the yard.
+  const ELEVATED_GAP = 550; // an at-grade run shorter than this is really the same embankment
+  const APPROACH = 90; // meters of ramp drawn at each end of an elevated run
+  const elevatedRail: NonNullable<MapData['elevatedRail']> = [];
+  const groundRails: Array<{ pts: Pt[]; e: boolean }> = [];
+  // OSM renames the LIRR's main line halfway across the map; the route is one line, and it has to
+  // stitch as one or the embankment through Woodside breaks in the middle.
+  const route = (name: string) => (name === 'LIRR Main Line' ? 'Main Line' : name);
+  const routes = new Map<string, typeof railWays>();
+  for (const w of railWays) {
+    const key = route(w.name);
+    (routes.get(key) ?? routes.set(key, []).get(key)!).push(w);
+  }
+  for (const ways of routes.values()) {
+    const electrified = ways.filter((w) => w.e).length * 2 > ways.length;
+    const bridgeSegs: Array<[Pt, Pt]> = [];
+    for (const w of ways.filter((w) => w.bridge)) for (let i = 1; i < w.pts.length; i++) bridgeSegs.push([w.pts[i - 1], w.pts[i]]);
+    for (const chain of stitchLines(ways.map((w) => w.pts))) {
+      const cum = [0];
+      for (let i = 1; i < chain.length; i++) cum.push(cum[i - 1] + Math.hypot(chain[i][0] - chain[i - 1][0], chain[i][1] - chain[i - 1][1]));
+      // A segment is a bridge span when its midpoint sits on one of the bridge ways.
+      const onBridge = chain.slice(1).map((p, i) => {
+        const mid: Pt = [(p[0] + chain[i][0]) / 2, (p[1] + chain[i][1]) / 2];
+        return bridgeSegs.some(([a, b]) => distToSegment(mid[0], mid[1], a[0], a[1], b[0], b[1]) < 1.5);
+      });
+      if (!onBridge.some(Boolean)) {
+        groundRails.push({ pts: chain, e: electrified });
+        continue;
+      }
+      // Bridge spans as segment-index ranges, then merged into elevated runs across short gaps.
+      const spans: Array<[number, number]> = [];
+      for (let i = 0; i < onBridge.length; i++) {
+        if (!onBridge[i]) continue;
+        const start = i;
+        while (i + 1 < onBridge.length && onBridge[i + 1]) i++;
+        spans.push([start, i + 1]);
+      }
+      const runs: Array<[number, number]> = [];
+      for (const span of spans) {
+        const last = runs[runs.length - 1];
+        if (last && cum[span[0]] - cum[last[1]] < ELEVATED_GAP) last[1] = span[1];
+        else runs.push([...span]);
+      }
+      /** The chain between two vertices, cut to `limit` meters when walking outward from `from`. */
+      const slice = (from: number, to: number, limit = Infinity): Pt[] => {
+        const dir = Math.sign(to - from) || 1;
+        const out: Pt[] = [chain[from]];
+        for (let i = from + dir; i >= 0 && i < chain.length && dir * (to - i) >= 0; i += dir) {
+          const d = Math.abs(cum[i] - cum[from]);
+          if (d >= limit) {
+            const prev = i - dir;
+            const k = (limit - Math.abs(cum[prev] - cum[from])) / (Math.abs(cum[i] - cum[prev]) || 1);
+            out.push([chain[prev][0] + (chain[i][0] - chain[prev][0]) * k, chain[prev][1] + (chain[i][1] - chain[prev][1]) * k]);
+            break;
+          }
+          out.push(chain[i]);
+        }
+        return out;
+      };
+      let groundFrom = 0;
+      // The line stays up where it leaves the map, so a run that reaches the edge is carried out to
+      // the end of the chain instead of ramping down; inside the map it is cut at the drawn edge.
+      const drawn = (q: Pt) => inBounds(q[0], q[1]);
+      const leaving = (i: number) => !insideBoundary(chain[i][0], chain[i][1]) && distOutside(chain[i][0], chain[i][1]) > 120;
+      for (const run of runs) {
+        let [i0, i1] = run;
+        while (i0 > 0 && drawn(chain[i0 - 1]) && leaving(i0 - 1)) i0--;
+        while (i1 < chain.length - 1 && drawn(chain[i1 + 1]) && leaving(i1 + 1)) i1++;
+        while (i0 < i1 && !drawn(chain[i0])) i0++;
+        while (i1 > i0 && !drawn(chain[i1])) i1--;
+        if (i1 - i0 < 1) continue;
+        const approaches = [slice(i0, 0, APPROACH), slice(i1, chain.length - 1, APPROACH)].filter((a) => a.length >= 2);
+        const onSpans = spans.filter(([a, b]) => a >= i0 && b <= i1);
+        // The banked stretches are what is left of the run between its girder spans.
+        const banks: Array<[number, number]> = [];
+        let from = i0;
+        for (const [a, b] of onSpans) {
+          if (a > from) banks.push([from, a]);
+          from = b;
+        }
+        if (from < i1) banks.push([from, i1]);
+        elevatedRail.push({
+          p: flat(simplifyLine(slice(i0, i1), 0.5)),
+          s: onSpans.map(([a, b]) => flat(slice(a, b))),
+          k: banks.map(([a, b]) => flat(simplifyLine(slice(a, b), 0.5))),
+          a: approaches.map((a) => flat(simplifyLine(a, 0.5))),
+          ...(electrified ? { e: 1 as const } : {}),
+        });
+        // Ground track runs up to where the ramp starts, and picks up again past the far ramp.
+        const rampStart = cum[i0] - APPROACH;
+        const upto = chain.findIndex((_, i) => cum[i] > rampStart);
+        if (upto > groundFrom + 1) groundRails.push({ pts: chain.slice(groundFrom, upto), e: electrified });
+        const rampEnd = cum[i1] + APPROACH;
+        groundFrom = Math.max(i1, chain.findIndex((_, i) => cum[i] >= rampEnd));
+        if (groundFrom < 0) groundFrom = chain.length;
+      }
+      if (groundFrom < chain.length - 1) groundRails.push({ pts: chain.slice(groundFrom), e: electrified });
+    }
+  }
+  for (const g of groundRails) {
+    if (g.pts.length < 2) continue;
+    const line = flat(simplifyLine(g.pts, 0.5));
+    rails.push(line);
+    // LIRR tracks carry a third rail (with a wooden cover board) beside the running rails.
+    if (g.e) thirdRails.push(flat(offsetLine(toPts(line), 1.45)));
+  }
 
   // The 7 train runs on an arched concrete viaduct above Queens Boulevard from 33rd to 48th
   // Street and on steel elsewhere (Wikipedia, "IRT Flushing Line"). OSM does not tag the material,
@@ -301,6 +413,10 @@ async function main() {
   for (const r of roads) if (r.l === 0) eachSeg(r.p, r.w / 2 + r.sw + 1.2, r.w / 2);
   for (const r of rails) eachSeg(r, 3, 0);
   for (const v of viaduct) eachSeg(v, 7, 0);
+  for (const b of elevatedRail) {
+    eachSeg(b.p, 8, 0);
+    for (const a of b.a) eachSeg(a, 8, 0);
+  }
   const segsNear = (x: number, y: number) => grid.get(`${Math.floor(x / CELL)},${Math.floor(y / CELL)}`) ?? [];
   const blocked = (x: number, y: number) => segsNear(x, y).some((s) => distToSegment(x, y, s.ax, s.ay, s.bx, s.by) < s.clear);
 
@@ -516,6 +632,7 @@ async function main() {
     areas: areas.map((a) => ({ k: a.k, r: a.r.map(flat), ...(a.id ? { id: a.id } : {}), ...(a.s ? { s: a.s } : {}) })),
     rails,
     thirdRails: thirdRails.filter(touches),
+    elevatedRail,
     props,
     viaduct,
     viaductParts,
@@ -528,6 +645,7 @@ async function main() {
     [streetCount > 4000, `street trees ${streetCount} > 4000`],
     [boundary.length >= 1 && boundary[0][0].length >= 10, 'boundary has a real outline'],
     [viaduct.length > 0, `viaduct segments ${viaduct.length} > 0`],
+    [elevatedRail.length > 0, `elevated rail runs ${elevatedRail.length} > 0`],
     [areas.some((a) => a.k === 'park'), 'has parks'],
   ];
   for (const [ok, msg] of asserts) if (!ok) throw new Error(`Sanity check failed: ${msg}`);
@@ -581,6 +699,7 @@ async function main() {
     [
       `origin ${origin.lon}, ${origin.lat}; core ${(core.maxX - core.minX).toFixed(0)} x ${(core.maxY - core.minY).toFixed(0)} m; grid angle ${gridAngle} deg`,
       `roads ${roads.length} (bridges ${roads.filter((r) => r.l > 0).length}), areas ${areas.length}, rails ${rails.length}`,
+      `elevated rail ${elevatedRail.length} runs: ${elevatedRail.map((b) => Math.round(lineLength(toPts(b.p)))).sort((a, b) => b - a).join(', ')} m (${elevatedRail.reduce((n, b) => n + b.s.length, 0)} girder spans)`,
       `elevated tracks ${viaduct.length}: ${viaduct.map((v) => Math.round(lineLength(toPts(v)))).sort((a, b) => b - a).join(', ')} m`,
       `  concrete parts: ${viaductParts.filter((v) => v.k === 'concrete').map((v) => Math.round(lineLength(toPts(v.p)))).join(', ')} m; aqueduct width ${aqueduct.map((a) => `${a.wl}+${a.wr}`).join(', ')} m`,
       `trees ${trees.length / 4} (street ${streetCount}, ${pushed} nudged off asphalt; scatter ${scatterCount})`,

@@ -8,6 +8,7 @@ import { buildStreetlights } from './render/streetlights.ts';
 import type { FadeUniforms } from './render/shaders.ts';
 import { buildTrees, type Trees } from './render/trees.ts';
 import { buildViaduct } from './render/viaduct.ts';
+import { buildElevatedRail } from './render/elevatedRail.ts';
 
 // Colors are authored as final screen values (Sims-era look), so turn off color management.
 THREE.ColorManagement.enabled = false;
@@ -85,6 +86,7 @@ export class MapApp {
     this.trees = buildTrees(data.trees, this.fade, this.shadowMaterial, this.sunOffset);
     this.scene.add(this.trees.group);
     this.scene.add(buildViaduct(data, this.shadowMaterial, this.sunOffset));
+    this.scene.add(buildElevatedRail(data, this.shadowMaterial, this.sunOffset));
     this.scene.add(buildParkProps(data, this.shadowMaterial, this.sunOffset));
     this.scene.add(buildStreetlights(data, this.uRight).group);
 
