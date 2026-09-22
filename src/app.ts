@@ -4,6 +4,7 @@ import type { MapData } from './mapdata.ts';
 import { buildFadeUniforms, buildGround } from './render/ground.ts';
 import { buildParkProps } from './render/parkProps.ts';
 import { makeShadowMaterial } from './render/shadow.ts';
+import { buildStreetlights } from './render/streetlights.ts';
 import type { FadeUniforms } from './render/shaders.ts';
 import { buildTrees, type Trees } from './render/trees.ts';
 import { buildViaduct } from './render/viaduct.ts';
@@ -36,6 +37,8 @@ export class MapApp {
   /** Ground draw slot for place lots (see buildGround). */
   readonly lotOrder: number;
   readonly trees: Trees;
+  /** Camera right vector on the ground, for anything that faces the camera. */
+  readonly uRight = { value: new THREE.Vector2(1, 0) };
   view: ViewState;
   vp: Viewport = { width: 1, height: 1 };
 
@@ -83,6 +86,7 @@ export class MapApp {
     this.scene.add(this.trees.group);
     this.scene.add(buildViaduct(data, this.shadowMaterial, this.sunOffset));
     this.scene.add(buildParkProps(data, this.shadowMaterial, this.sunOffset));
+    this.scene.add(buildStreetlights(data, this.uRight).group);
 
     const c = data.core;
     this.view = { tx: (c.minX + c.maxX) / 2, ty: (c.minY + c.maxY) / 2, scale: 1, azimuth: this.baseAzimuth };
@@ -240,6 +244,7 @@ export class MapApp {
     this.tickers.forEach((f) => f(now));
     applyToCamera(this.camera, this.view, this.vp);
     this.trees.setAzimuth(this.view.azimuth);
+    this.uRight.value.set(Math.sin(this.view.azimuth), -Math.cos(this.view.azimuth));
     this.renderer.render(this.scene, this.camera);
     if (this.anim || this.tickers.size) this.schedule();
   };

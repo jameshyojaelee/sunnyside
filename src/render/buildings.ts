@@ -76,6 +76,44 @@ function windowTexture(wall: string) {
   );
 }
 
+/** Where the glass is in a window bay, for the warm glow that comes on at night. */
+function windowGlowTexture() {
+  return cachedTexture(
+    'winGlow',
+    (ctx) => {
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 64, 64);
+      const g = ctx.createLinearGradient(0, 16, 0, 44);
+      g.addColorStop(0, '#fff2cf');
+      g.addColorStop(1, '#f6c877');
+      ctx.fillStyle = g;
+      ctx.fillRect(20, 16, 24, 28);
+      ctx.fillStyle = '#7a5a2a';
+      ctx.fillRect(31, 16, 2, 28);
+    },
+    64,
+    64,
+  );
+}
+
+// Every wall that has windows, so night mode can light them all at once.
+const windowWalls: THREE.MeshLambertMaterial[] = [];
+let windowsLit = false;
+
+/** Turn the lights on inside the buildings (or off again). */
+export function setWindowsLit(on: boolean) {
+  windowsLit = on;
+  for (const mat of windowWalls) applyWindowLight(mat);
+}
+
+function applyWindowLight(mat: THREE.MeshLambertMaterial) {
+  const base = (mat.userData.baseEmissive as string) ?? '#000000';
+  mat.emissiveMap = windowsLit ? windowGlowTexture() : null;
+  mat.emissive.set(windowsLit ? '#ffffff' : base);
+  mat.emissiveIntensity = windowsLit ? 1 : 1;
+  mat.needsUpdate = true;
+}
+
 function awningTexture(color: string, solid = false) {
   return cachedTexture(
     `awning:${color}:${solid}`,
@@ -304,6 +342,7 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     (byBuilding.get(key) ?? byBuilding.set(key, []).get(key)!).push(p);
   }
 
+  windowWalls.length = 0; // rebuilt below, in step with the meshes
   const buildings: PlaceBuilding[] = [];
   for (const [key, group] of byBuilding) {
     const first = group[0];
@@ -327,6 +366,11 @@ export function buildPlaceBuildings(places: Place[], env: LotEnv): { group: THRE
     // Pale custom finishes get a little self-light so they stay pale on the shaded side.
     const baseEmissive = facade?.wall ? '#3a3a38' : '#000000';
     const wallMat = new THREE.MeshLambertMaterial({ map: wallTex, emissive: baseEmissive });
+    wallMat.userData.baseEmissive = baseEmissive;
+    if (!fastFood && (!facade?.wall || facade.windows)) {
+      windowWalls.push(wallMat);
+      applyWindowLight(wallMat);
+    }
     g.add(new THREE.Mesh(wallGeometry(ring, h, fastFood ? 1 : undefined), wallMat));
 
     const shape = new THREE.Shape(ring.map(([x, y]) => new THREE.Vector2(x, y)));

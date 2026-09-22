@@ -38,7 +38,7 @@
     "facade": {
       "wall": "#ece9e1",
       "finish": "smooth",
-      "shopGlass": 3.0,
+      "shopGlass": 3,
       "cornice": "#d8d4c8",
       "band": {
         "color": "#1f7a45",
@@ -153,6 +153,38 @@
     "unit": "ariyoshi"
   },
   {
+    "id": "avenue-coffee-house",
+    "name": "Avenue Coffee House",
+    "category": "coffee",
+    "description": "The most SoCal coffee house I've been in since SoCal",
+    "osmBuildingId": "w280354487",
+    "unit": "avenue-coffee-house",
+    "footprint": [
+      [
+        -73.9197664,
+        40.7420051
+      ],
+      [
+        -73.9197274,
+        40.7420008
+      ],
+      [
+        -73.9196117,
+        40.7420518
+      ],
+      [
+        -73.9197545,
+        40.7420675
+      ]
+    ],
+    "height": 6.4,
+    "storefront": [
+      -73.9197461,
+      40.7420347
+    ],
+    "facadeEdge": 3
+  },
+  {
     "id": "chase-bank",
     "name": "Chase Bank",
     "category": "service",
@@ -193,6 +225,39 @@
     "facadeEdge": 4
   },
   {
+    "id": "chipotle",
+    "name": "Chipotle",
+    "category": "restaurant",
+    "description": "Cleanest Chipotle I have ever smelled",
+    "address": "40-15 Queens Boulevard",
+    "osmBuildingId": "w280368568",
+    "unit": "chipotle",
+    "footprint": [
+      [
+        -73.9234851,
+        40.7439948
+      ],
+      [
+        -73.9234166,
+        40.743987
+      ],
+      [
+        -73.9233905,
+        40.7441206
+      ],
+      [
+        -73.9234589,
+        40.7441284
+      ]
+    ],
+    "height": 5,
+    "storefront": [
+      -73.9234368,
+      40.7440275
+    ],
+    "facadeEdge": 0
+  },
+  {
     "id": "curleys-bagels-2",
     "name": "Curley's Bagels",
     "category": "restaurant",
@@ -224,6 +289,43 @@
     ],
     "facadeEdge": 3,
     "address": "43-04 47th"
+  },
+  {
+    "id": "doughnut-plant",
+    "name": "Doughnut Plant",
+    "category": "bakery",
+    "description": "Large, creative donuts.",
+    "address": "31-00 47th Avenue",
+    "visited": "2026-06-05",
+    "osmBuildingId": "w265159319",
+    "unit": "doughnut-plant",
+    "footprint": [
+      [
+        -73.9352715,
+        40.7427133
+      ],
+      [
+        -73.9351896,
+        40.7427039
+      ],
+      [
+        -73.935163,
+        40.7428374
+      ],
+      [
+        -73.9352449,
+        40.7428469
+      ]
+    ],
+    "height": 26.5,
+    "storefront": [
+      -73.9352141,
+      40.7427911
+    ],
+    "facadeEdge": 2,
+    "photos": [
+      "photos/doughnut-plant/p1789953779841-0.jpg"
+    ]
   },
   {
     "id": "flowers-by-giorgie",
@@ -290,6 +392,38 @@
     ],
     "facadeEdge": 0,
     "unit": "fuyu-ramen-and-sake"
+  },
+  {
+    "id": "green-valley-marketplace-of-sunnyside",
+    "name": "Green Valley Marketplace of Sunnyside",
+    "category": "grocery",
+    "description": "Ben & Jerry's 2 for $9!!!!!",
+    "address": "44-07 Greenpoint Avenue",
+    "osmBuildingId": "w280354494",
+    "footprint": [
+      [
+        -73.9204096,
+        40.7417006
+      ],
+      [
+        -73.9203456,
+        40.742023
+      ],
+      [
+        -73.920747,
+        40.7418474
+      ],
+      [
+        -73.9208121,
+        40.7415232
+      ]
+    ],
+    "height": 4.9,
+    "storefront": [
+      -73.9206202,
+      40.7417156
+    ],
+    "facadeEdge": 3
   },
   {
     "id": "key-food-fresh-n-save",
@@ -548,6 +682,39 @@
     }
   },
   {
+    "id": "paris-baguette",
+    "name": "Paris Baguette",
+    "category": "bakery",
+    "description": "Don't be fooled by its name. It's no more Parisian than Kbbq.",
+    "address": "45-22 46th St",
+    "osmBuildingId": "w280354487",
+    "unit": "paris-baguette",
+    "footprint": [
+      [
+        -73.9191291,
+        40.7424423
+      ],
+      [
+        -73.9189534,
+        40.7424224
+      ],
+      [
+        -73.9189416,
+        40.7424823
+      ],
+      [
+        -73.9191173,
+        40.7425023
+      ]
+    ],
+    "height": 6.4,
+    "storefront": [
+      -73.9189723,
+      40.7424544
+    ],
+    "facadeEdge": 1
+  },
+  {
     "id": "pelicana-chicken",
     "name": "Pelicana Chicken",
     "category": "restaurant",
@@ -584,6 +751,39 @@
     "facadeEdge": 2
   },
   {
+    "id": "philomenas-pizza",
+    "name": "Philomena's Pizza",
+    "category": "restaurant",
+    "description": "Juicy pepperoni cups on pizza.",
+    "address": "41-16 Queens Boulevard",
+    "visited": "2026-09-20",
+    "osmBuildingId": "w280355822",
+    "footprint": [
+      [
+        -73.9229242,
+        40.7433729
+      ],
+      [
+        -73.9232722,
+        40.7434143
+      ],
+      [
+        -73.9233314,
+        40.7431441
+      ],
+      [
+        -73.9229751,
+        40.7431045
+      ]
+    ],
+    "height": 26.5,
+    "storefront": [
+      -73.9229727,
+      40.7433567
+    ],
+    "facadeEdge": 0
+  },
+  {
     "id": "prung-asian-cuisine",
     "name": "Prung",
     "category": "restaurant",
@@ -614,7 +814,10 @@
       40.7458069
     ],
     "facadeEdge": 2,
-    "visited": "2026-09-17"
+    "visited": "2026-09-17",
+    "photos": [
+      "photos/prung-asian-cuisine/p1789953823738-0.jpg"
+    ]
   },
   {
     "id": "ricas-pupusas-and-mas",
@@ -708,7 +911,7 @@
     "id": "sotto-le-stelle",
     "name": "Sotto Le Stelle",
     "category": "restaurant",
-    "description": "Italian restaurant that I'd actually spend my money on. The panna cotta changed my life, and the staff gave us free tiramisu.",
+    "description": "Italian restaurant that is worth actually spending money on. The panna cotta is life changing, and you might get free tiramisu from the staff.",
     "address": "44-07 Queens Boulevard",
     "visited": "2026-02-25",
     "osmBuildingId": "w280365514",
@@ -735,7 +938,12 @@
       -73.9201239,
       40.7436409
     ],
-    "facadeEdge": 2
+    "facadeEdge": 2,
+    "photos": [
+      "photos/sotto-le-stelle/p1789953929049-0.jpg",
+      "photos/sotto-le-stelle/p1789953929183-1.jpg",
+      "photos/sotto-le-stelle/p1789953929282-2.jpg"
+    ]
   },
   {
     "id": "souk-al-shater",
@@ -768,6 +976,38 @@
       40.7437362
     ],
     "facadeEdge": 2
+  },
+  {
+    "id": "sunnyside-arts",
+    "name": "Sunnyside Arts",
+    "category": "shop",
+    "description": "Cute lil Art store",
+    "address": "45-18 Skillman Avenue",
+    "osmBuildingId": "w280363092",
+    "footprint": [
+      [
+        -73.9182419,
+        40.7464796
+      ],
+      [
+        -73.918307,
+        40.7464868
+      ],
+      [
+        -73.9183378,
+        40.746322
+      ],
+      [
+        -73.9182738,
+        40.7463148
+      ]
+    ],
+    "height": 7.2,
+    "storefront": [
+      -73.9182774,
+      40.7464679
+    ],
+    "facadeEdge": 0
   },
   {
     "id": "super-key-food",

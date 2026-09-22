@@ -36,6 +36,18 @@ vec3 forestColor(vec2 p) {
 }
 `;
 
+/** 0 by day, 1 at night. Shared by every shader that paints its own colors. */
+export const NIGHT = { value: 0 };
+
+/** Moonlit version of a daytime color: much darker and cooler, never pure black. */
+export const NIGHT_GLSL = /* glsl */ `
+uniform float uNight;
+vec3 nightly(vec3 c) {
+  vec3 moon = c * vec3(0.30, 0.35, 0.52) + vec3(0.012, 0.016, 0.032);
+  return mix(c, moon, uNight);
+}
+`;
+
 export const FADE_GLSL = /* glsl */ `
 uniform sampler2D uMask;
 uniform vec4 uBounds; // minX, minY, 1/width, 1/height
@@ -68,7 +80,7 @@ const PATTERN_GLSL: Record<GroundPattern, string> = {
 /** Flat ground layer: colored, patterned, and faded to forest outside the boundary. */
 export function groundMaterial(color: THREE.ColorRepresentation, pattern: GroundPattern, fade: FadeUniforms): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(color) }, ...fade },
+    uniforms: { uColor: { value: new THREE.Color(color) }, uNight: NIGHT, ...fade },
     vertexShader: /* glsl */ `
       varying vec2 vWorld;
       void main() {
@@ -81,11 +93,12 @@ export function groundMaterial(color: THREE.ColorRepresentation, pattern: Ground
       varying vec2 vWorld;
       ${NOISE_GLSL}
       ${FADE_GLSL}
+      ${NIGHT_GLSL}
       void main() {
         ${PATTERN_GLSL[pattern]}
         float k = insideAmount(vWorld);
         // Forest noise only matters near and beyond the boundary; skip it deep inside.
-        gl_FragColor = vec4(k > 0.995 ? c : mix(forestColor(vWorld), c, k), 1.0);
+        gl_FragColor = vec4(nightly(k > 0.995 ? c : mix(forestColor(vWorld), c, k)), 1.0);
       }`,
     depthTest: false,
     depthWrite: false,
@@ -94,7 +107,7 @@ export function groundMaterial(color: THREE.ColorRepresentation, pattern: Ground
 
 export function grassMaterial(fade: FadeUniforms): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: { ...fade },
+    uniforms: { uNight: NIGHT, ...fade },
     vertexShader: /* glsl */ `
       varying vec2 vWorld;
       void main() {
@@ -106,10 +119,11 @@ export function grassMaterial(fade: FadeUniforms): THREE.ShaderMaterial {
       varying vec2 vWorld;
       ${NOISE_GLSL}
       ${FADE_GLSL}
+      ${NIGHT_GLSL}
       void main() {
         float k = insideAmount(vWorld);
         vec3 c = k > 0.005 ? grassColor(vWorld) : vec3(0.0);
-        gl_FragColor = vec4(k > 0.995 ? c : mix(forestColor(vWorld), c, k), 1.0);
+        gl_FragColor = vec4(nightly(k > 0.995 ? c : mix(forestColor(vWorld), c, k)), 1.0);
       }`,
     depthTest: false,
     depthWrite: false,

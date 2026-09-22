@@ -7,6 +7,7 @@ import type { MapData } from './mapdata.ts';
 import { validatePlaces, type Place } from './places.ts';
 import { PlacesController } from './placesController.ts';
 import { buildArch } from './render/arch.ts';
+import { NightMode } from './night.ts';
 import { buildPeople } from './render/people.ts';
 import { buildTrains } from './render/trains.ts';
 import { PlaceCard } from './ui/card.ts';
@@ -104,11 +105,33 @@ async function start() {
   const people = buildPeople(data, app.shadowMaterial);
   app.scene.add(people.group);
   if (!reducedMotion) app.addTicker(people.update);
+  // Day/night switch. The choice sticks, so the map opens the way you left it.
+  const night = new NightMode(app);
+  const nightButton = roundButton(ICONS.moon, 'Turn on the streetlights', () => night.toggle());
+  night.onChange((on) => {
+    nightButton.innerHTML = on ? ICONS.sun : ICONS.moon;
+    nightButton.title = nightButton.ariaLabel = on ? 'Back to daylight' : 'Turn on the streetlights';
+    nightButton.classList.toggle('on', on);
+    try {
+      localStorage.setItem('sunnyside:night', on ? '1' : '0');
+    } catch {
+      // Private browsing: the map just opens in daylight next time.
+    }
+  });
+  let wasNight = false;
+  try {
+    wasNight = localStorage.getItem('sunnyside:night') === '1';
+  } catch {
+    wasNight = false;
+  }
+  if (wasNight) night.set(true);
+
   const list = new PlacesList(ui, (id) => controller.selectPlace(id));
   const about = new AboutPanel(ui);
   left.append(
     roundButton(ICONS.places, 'Our places', () => list.toggle()),
     roundButton(ICONS.info, 'About this map', () => about.toggle()),
+    nightButton,
   );
   setupMusic(left);
   controller.onChange = (places) => {
@@ -150,7 +173,7 @@ async function start() {
       if (mod && !new URLSearchParams(location.search).has('fixtures')) controller.setPlaces(usable(mod.default as Place[]));
     });
   }
-  if (import.meta.env.DEV) Object.assign(window, { __app: app, __places: controller });
+  if (import.meta.env.DEV) Object.assign(window, { __app: app, __places: controller, __night: night });
 }
 
 function loadFailed(what: string) {

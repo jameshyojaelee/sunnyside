@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { rng } from '../geo.ts';
-import { FADE_GLSL, NOISE_GLSL, type FadeUniforms } from './shaders.ts';
+import { FADE_GLSL, NIGHT, NIGHT_GLSL, NOISE_GLSL, type FadeUniforms } from './shaders.ts';
 
 const CELL_W = 128;
 const CELL_H = 160;
@@ -99,7 +99,7 @@ export function buildTrees(flatTrees: number[], fade: FadeUniforms, shadowMateri
 
   const uRight = { value: new THREE.Vector2(1, 0) };
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uAtlas: { value: atlas }, uRight, ...fade },
+    uniforms: { uAtlas: { value: atlas }, uRight, uNight: NIGHT, ...fade },
     vertexShader: /* glsl */ `
       attribute vec4 aTree;
       uniform vec2 uRight;
@@ -119,10 +119,12 @@ export function buildTrees(flatTrees: number[], fade: FadeUniforms, shadowMateri
       varying vec2 vWorld;
       ${NOISE_GLSL}
       ${FADE_GLSL}
+      ${NIGHT_GLSL}
       void main() {
         vec4 c = texture2D(uAtlas, vUv);
         if (c.a < 0.08) discard;
         c.rgb *= mix(0.72, 1.0, insideAmount(vWorld));
+        c.rgb = nightly(c.rgb);
         gl_FragColor = c;
       }`,
     alphaToCoverage: true,
