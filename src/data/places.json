@@ -291,6 +291,39 @@
     "address": "43-04 47th"
   },
   {
+    "id": "cvs",
+    "name": "CVS",
+    "category": "shop",
+    "description": "The pharmacy next door to Philomena’s, open late.",
+    "address": "41-08 Queens Boulevard",
+    "osmBuildingId": "w280355822",
+    "unit": "cvs",
+    "footprint": [
+      [
+        -73.9231681,
+        40.7432534
+      ],
+      [
+        -73.923058,
+        40.7432403
+      ],
+      [
+        -73.9230305,
+        40.7433734
+      ],
+      [
+        -73.9231406,
+        40.7433865
+      ]
+    ],
+    "height": 26.5,
+    "storefront": [
+      -73.9231009,
+      40.7433753
+    ],
+    "facadeEdge": 2
+  },
+  {
     "id": "doughnut-plant",
     "name": "Doughnut Plant",
     "category": "bakery",
@@ -544,6 +577,39 @@
     }
   },
   {
+    "id": "lowery-wines-and-liquors",
+    "name": "Lowery Wines & Liquors",
+    "category": "shop",
+    "description": "The wine and liquor shop on the Queens Boulevard strip.",
+    "address": "40-14 Queens Boulevard",
+    "osmBuildingId": "w280359602",
+    "unit": "lowery-wines-and-liquors",
+    "footprint": [
+      [
+        -73.9238634,
+        40.7433318
+      ],
+      [
+        -73.9238013,
+        40.7433247
+      ],
+      [
+        -73.9237749,
+        40.743458
+      ],
+      [
+        -73.923837,
+        40.743465
+      ]
+    ],
+    "height": 6.1,
+    "storefront": [
+      -73.9238004,
+      40.7434381
+    ],
+    "facadeEdge": 1
+  },
+  {
     "id": "makina",
     "name": "Makina",
     "category": "restaurant",
@@ -760,28 +826,29 @@
     "osmBuildingId": "w280355822",
     "footprint": [
       [
-        -73.9229242,
-        40.7433729
+        -73.923058,
+        40.7432403
       ],
       [
-        -73.9232722,
-        40.7434143
+        -73.9229478,
+        40.7432272
       ],
       [
-        -73.9233314,
-        40.7431441
+        -73.9229203,
+        40.7433604
       ],
       [
-        -73.9229751,
-        40.7431045
+        -73.9230305,
+        40.7433734
       ]
     ],
     "height": 26.5,
     "storefront": [
-      -73.9229727,
-      40.7433567
+      -73.9229657,
+      40.7433438
     ],
-    "facadeEdge": 0
+    "facadeEdge": 2,
+    "unit": "philomenas-pizza"
   },
   {
     "id": "prung-asian-cuisine",
